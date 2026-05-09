@@ -923,11 +923,11 @@ async function loadStock(){
     const heroMeta = document.getElementById('heroMeta');
     const industry = profileData.finnhubIndustry || '';
     const exchange = profileData.exchange || 'US';
-    const tradeDay = new Date(meta.regularMarketTime * 1000).toLocaleDateString();
+    const currentTradeDay = new Date(meta.regularMarketTime * 1000).toLocaleDateString();
     heroMeta.innerHTML = [
       `<span class="tag">${exchange}</span>`,
       industry ? `<span class="tag blue">${industry}</span>` : '',
-      `<span class="tag">${tradeDay}</span>`,
+      `<span class="tag">${currentTradeDay}</span>`,
     ].join('');
 
     /* Metrics */
@@ -1075,7 +1075,7 @@ async function loadStock(){
 
     hide('loadingBlock');
     show('mainContent');
-    setStatus(`已更新 · ${tradeDay}`, 'ok');
+    setStatus(`已更新 · ${currentTradeDay}`, 'ok');
 
   } catch(err) {
     hide('loadingBlock');
