@@ -740,7 +740,6 @@ let CFG = {
   orKey:   extConfig.OPENROUTER_KEY  || localStorage.getItem('or_key') || '',
   orModel: extConfig.DEFAULT_MODEL   || localStorage.getItem('or_model') || 'openrouter/free',
 };
-const YF_PROXY = 'https://api.allorigins.win/get?url=';
 const YF_BASE  = 'https://query1.finance.yahoo.com/v8/finance/chart';
 const FH = 'https://finnhub.io/api/v1';
 const OR = 'https://openrouter.ai/api/v1/chat/completions';
@@ -844,6 +843,23 @@ const tc = '#4f5565';
 /* ═══════════════════════════════
    MAIN LOAD
 ══════════════════════════════════ */
+async function fetchYF(url) {
+  // 代理 A: AllOrigins (JSON 封裝格式)
+  const proxyA = 'https://api.allorigins.win/get?url=';
+  // 代理 B: CORSProxy.io (直接透傳格式)
+  const proxyB = 'https://corsproxy.io/?';
+
+  try {
+    const resA = await fetch(proxyA + encodeURIComponent(url));
+    const jsonA = await resA.json();
+    return JSON.parse(jsonA.contents);
+  } catch (err) {
+    console.warn("代理 A 失敗，切換至代理 B...", err);
+    const resB = await fetch(proxyB + encodeURIComponent(url));
+    return await resB.json();
+  }
+}
+
 async function loadStock(){
   const sym = document.getElementById('tickerInput').value.trim().toUpperCase();
   if(!sym) return;
@@ -859,34 +875,37 @@ async function loadStock(){
 
   try {
     const yfUrl = `${YF_BASE}/${sym}?interval=1d&range=3mo`;
-    const [yfResponse, profileData, newsData] = await Promise.all([
-      fetch(YF_PROXY + encodeURIComponent(yfUrl)).then(r=>r.json()),
-      fetch(`${FH}/stock/profile2?symbol=${sym}&token=${CFG.fhKey}`).then(r=>r.json()),
-      fetch(`${FH}/company-news?symbol=${sym}&from=${dateStr(-30)}&to=${dateStr(0)}&token=${CFG.fhKey}`).then(r=>r.json()),
+    
+    // 平行執行請求，但對 YF 採用備援機制
+    const [chartData, profileData, newsData] = await Promise.all([
+      fetchYF(yfUrl),
+      fetch(`${FH}/stock/profile2?symbol=${sym}&token=${CFG.fhKey}`).then(r=>r.ok?r.json():{}).catch(()=>({})),
+      fetch(`${FH}/company-news?symbol=${sym}&from=${dateStr(-30)}&to=${dateStr(0)}&token=${CFG.fhKey}`).then(r=>r.ok?r.json():[]).catch(()=>([])),
     ]);
 
-    const chartData = JSON.parse(yfResponse.contents);
     if(!chartData || !chartData.chart || !chartData.chart.result) {
-      throw new Error(`Yahoo Finance 回傳格式錯誤或找不到代號「${sym}」。`);
+      throw new Error(`無法獲取「${sym}」行情。Yahoo Finance 伺服器忙碌或代號錯誤。`);
     }
 
     const result = chartData.chart.result[0];
     const meta = result.meta;
     const price    = meta.regularMarketPrice;
-    const prevClose= meta.chartPreviousClose || meta.previousClose;
+    const prevClose= meta.chartPreviousClose || meta.previousClose || price;
     const chg      = price - prevClose;
     const chgPct   = (chg / prevClose) * 100;
     
     const quotes   = result.indicators.quote[0];
-    const validHighs = quotes.high.filter(v=>v!=null);
-    const validLows  = quotes.low.filter(v=>v!=null);
-    const validOpens = quotes.open.filter(v=>v!=null);
-    const validVols  = quotes.volume.filter(v=>v!=null);
+    // 過濾無效數據點
+    const validHighs = (quotes.high || []).filter(v=>v!=null);
+    const validLows  = (quotes.low || []).filter(v=>v!=null);
+    const validOpens = (quotes.open || []).filter(v=>v!=null);
+    const validVols  = (quotes.volume || []).filter(v=>v!=null);
 
     const high     = validHighs.length ? validHighs[validHighs.length-1] : price;
     const low      = validLows.length ? validLows[validLows.length-1] : price;
     const open     = validOpens.length ? validOpens[validOpens.length-1] : price;
     const vol      = validVols.length ? validVols[validVols.length-1] : 0;
+    const tradeDay = new Date(meta.regularMarketTime * 1000).toLocaleDateString();
     const isUp     = chg >= 0;
 
     /* cache watchlist data */
