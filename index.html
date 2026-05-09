@@ -844,19 +844,24 @@ const tc = '#4f5565';
    MAIN LOAD
 ══════════════════════════════════ */
 async function fetchYF(url) {
-  // 代理 A: AllOrigins (JSON 封裝格式)
+  // 代理 A: AllOrigins (注意：?url= 必須完整)
   const proxyA = 'https://api.allorigins.win/get?url=';
-  // 代理 B: CORSProxy.io (直接透傳格式)
+  // 代理 B: CORSProxy.io (備援)
   const proxyB = 'https://corsproxy.io/?';
 
   try {
     const resA = await fetch(proxyA + encodeURIComponent(url));
+    if (!resA.ok) throw new Error('Proxy A 響應異常');
     const jsonA = await resA.json();
     return JSON.parse(jsonA.contents);
   } catch (err) {
-    console.warn("代理 A 失敗，切換至代理 B...", err);
-    const resB = await fetch(proxyB + encodeURIComponent(url));
-    return await resB.json();
+    console.warn("代理 A 失效或被 CORS 封鎖，切換至代理 B...", err);
+    try {
+      const resB = await fetch(proxyB + encodeURIComponent(url));
+      return await resB.json();
+    } catch (err2) {
+      throw new Error("所有數據代理均失效。如果您是在本地開啟檔案，請改用 GitHub Pages 網址開啟，或使用伺服器環境執行。");
+    }
   }
 }
 
