@@ -1,647 +1,1388 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-TW">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>[必填] 替换为 PPT 标题 · Deck Title</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,700&family=Source+Serif+4:ital,opsz,wght@0,8..60,300;0,8..60,400;0,8..60,500;0,8..60,600;1,8..60,400&family=IBM+Plex+Mono:wght@300;400;500;600&family=Noto+Serif+SC:wght@300;400;500;600;700;900&family=Noto+Sans+SC:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>StockAI — 美股深度分析</title>
 <style>
-  :root{
-    /* ============ 主题色(默认:🖋 墨水经典) ============
-       切换主题:从 references/themes.md 复制对应的 :root 块
-       整体替换这几行(--ink / --ink-rgb / --paper / --paper-rgb)
-       其他地方散落的 rgba() 都走 var(--ink-rgb) / var(--paper-rgb),无需逐处改 */
-    --ink:#0a0a0b;
-    --ink-rgb:10,10,11;
-    --paper:#f1efea;
-    --paper-rgb:241,239,234;
-    --paper-tint:#e8e5de;
-    --ink-tint:#18181a;
+/* ─── AI Panel ─── */
+.ai-panel {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--radius); margin-bottom: 16px;
+  overflow: hidden; animation: fadeUp .3s ease both;
+}
+.ai-panel-hdr {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 20px; border-bottom: 1px solid var(--border);
+  cursor: pointer; user-select: none;
+}
+.ai-panel-hdr:hover { background: var(--bg3); }
+.ai-panel-title { font-family: var(--mono); font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.1em; display: flex; align-items: center; gap: 8px; }
+.ai-model-badge { font-size: 10px; padding: 2px 8px; border-radius: 20px; background: var(--purple); color: #fff; opacity: 0.85; }
+.ai-panel-body { padding: 20px; }
+.ai-response {
+  font-size: 13px; color: var(--text2); line-height: 1.8;
+  white-space: pre-wrap; word-break: break-word;
+  min-height: 60px;
+}
+.ai-response.streaming { border-left: 2px solid var(--green); padding-left: 14px; }
+.ai-response.done { border-left: 2px solid var(--border2); padding-left: 14px; }
+.ai-cursor { display: inline-block; width: 7px; height: 14px; background: var(--green); vertical-align: middle; animation: blink .7s step-end infinite; margin-left: 2px; }
+@keyframes blink { 0%,100%{opacity:1;} 50%{opacity:0;} }
+.ai-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+.model-select {
+  height: 36px; padding: 0 12px;
+  background: var(--bg3); border: 1px solid var(--border2);
+  border-radius: var(--radius-sm); color: var(--text2);
+  font-family: var(--mono); font-size: 12px;
+  outline: none; cursor: pointer;
+  transition: border-color .15s;
+  flex: 1; min-width: 160px; max-width: 340px;
+}
+.model-select:focus { border-color: var(--green); }
+.model-select option { background: #1a1e25; }
+.prompt-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+.prompt-btn {
+  height: 36px; padding: 0 14px;
+  border-radius: var(--radius-sm);
+  font-family: var(--sans); font-size: 12px; font-weight: 500;
+  cursor: pointer; border: 1px solid var(--border2);
+  background: var(--bg3); color: var(--text2);
+  transition: all .15s; white-space: nowrap;
+}
+.prompt-btn:hover { background: var(--purple); color: #fff; border-color: var(--purple); }
+.prompt-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.ai-error { font-size: 12px; color: var(--red); font-family: var(--mono); padding: 10px 14px; background: var(--red-dim); border-radius: var(--radius-sm); border: 1px solid rgba(255,77,106,0.2); }
+/* modal select */
+.field select {
+  width: 100%; height: 40px; padding: 0 12px;
+  background: var(--bg3); border: 1px solid var(--border2);
+  border-radius: var(--radius-sm); color: var(--text);
+  font-family: var(--mono); font-size: 13px; outline: none;
+  transition: border-color .15s; cursor: pointer;
+}
+.field select:focus { border-color: var(--green); }
+.field select option { background: #1a1e25; }
+</style>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;500;600;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="config.js"></script>
+<style>
+/* ─── Reset & Base ─── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:        #0d0f12;
+  --bg2:       #13161b;
+  --bg3:       #1a1e25;
+  --border:    rgba(255,255,255,0.07);
+  --border2:   rgba(255,255,255,0.12);
+  --text:      #e8eaf0;
+  --text2:     #8a8f9e;
+  --text3:     #4f5565;
+  --green:     #00c896;
+  --green-dim: rgba(0,200,150,0.12);
+  --green-glow:rgba(0,200,150,0.25);
+  --red:       #ff4d6a;
+  --red-dim:   rgba(255,77,106,0.12);
+  --blue:      #4d9fff;
+  --blue-dim:  rgba(77,159,255,0.12);
+  --amber:     #f5a623;
+  --purple:    #a78bfa;
+  --mono:      'DM Mono', monospace;
+  --sans:      'DM Sans', sans-serif;
+  --display:   'Syne', sans-serif;
+  --radius:    10px;
+  --radius-sm: 6px;
+}
+html { scroll-behavior: smooth; }
+body {
+  font-family: var(--sans);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
 
-    /* ============ 字体(跨主题固定) ============ */
-    --mono:"IBM Plex Mono",ui-monospace,monospace;
-    --serif-en:"Playfair Display","Source Serif 4",Georgia,serif;
-    --serif-body-en:"Source Serif 4",Georgia,serif;
-    --serif-zh:"Noto Serif SC",source-han-serif-sc,serif;
-    --sans-zh:"Noto Sans SC",source-han-sans-sc,sans-serif;
-  }
-  *{box-sizing:border-box;margin:0;padding:0}
-  html,body{width:100%;height:100%;overflow:hidden;background:var(--ink);color:var(--paper);font-family:var(--sans-zh);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+/* ─── Layout ─── */
+.shell { max-width: 1100px; margin: 0 auto; padding: 0 24px 80px; }
 
-  /* ============ WebGL 双背景 ============ */
-  canvas.bg{position:fixed;inset:0;width:100vw;height:100vh;z-index:0;display:block;transition:opacity 1.2s ease}
-  canvas#bg-light{opacity:0}
-  canvas#bg-dark{opacity:1}
-  body.light-bg canvas#bg-light{opacity:1}
-  body.light-bg canvas#bg-dark{opacity:0}
+/* ─── Header ─── */
+.header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 20px 0 24px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 28px;
+}
+.logo { display: flex; align-items: center; gap: 10px; }
+.logo-mark {
+  width: 32px; height: 32px; border-radius: 8px;
+  background: var(--green);
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 0 16px var(--green-glow);
+}
+.logo-mark svg { width: 16px; height: 16px; stroke: #000; fill: none; stroke-width: 2.2; stroke-linecap: round; }
+.logo-text { font-family: var(--display); font-size: 17px; font-weight: 700; letter-spacing: -0.02em; }
+.logo-text span { color: var(--green); }
+.header-right { display: flex; align-items: center; gap: 10px; }
+.api-indicator {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 11px; color: var(--text3);
+  font-family: var(--mono);
+}
+.api-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
 
-  /* ============ Deck 容器 + 翻页 ============ */
-  /* width: NSLIDES * 100vw，会在 JS 里动态矫正 */
-  #deck{position:fixed;inset:0;width:10000vw;height:100vh;display:flex;flex-wrap:nowrap;transition:transform .9s cubic-bezier(.77,0,.175,1);z-index:10;will-change:transform}
-  .slide{width:100vw;height:100vh;flex:0 0 100vw;position:relative;padding:6vh 6vw 10vh 6vw;display:flex;flex-direction:column;overflow:hidden}
-  .slide.light{color:var(--ink)}
-  .slide.dark{color:var(--paper)}
+/* ─── Search Bar ─── */
+.search-wrap {
+  display: flex; gap: 10px; margin-bottom: 28px;
+  align-items: center; flex-wrap: wrap;
+}
+.search-input-wrap {
+  position: relative; flex: 1; min-width: 200px; max-width: 360px;
+}
+.search-input-wrap input {
+  width: 100%; height: 44px;
+  background: var(--bg2);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 14px;
+  padding: 0 16px 0 42px;
+  outline: none;
+  transition: border-color .2s, box-shadow .2s;
+}
+.search-input-wrap input::placeholder { color: var(--text3); }
+.search-input-wrap input:focus {
+  border-color: var(--green);
+  box-shadow: 0 0 0 3px var(--green-dim);
+}
+.search-icon {
+  position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+  width: 16px; height: 16px; color: var(--text3); pointer-events: none;
+}
+.btn {
+  height: 44px; padding: 0 20px;
+  border-radius: var(--radius);
+  font-family: var(--sans);
+  font-size: 13px; font-weight: 500;
+  cursor: pointer; border: none;
+  transition: all .15s;
+}
+.btn-primary {
+  background: var(--green); color: #000;
+  box-shadow: 0 0 20px var(--green-dim);
+}
+.btn-primary:hover { background: #00dea8; box-shadow: 0 0 24px var(--green-glow); }
+.btn-ghost {
+  background: var(--bg2); color: var(--text2);
+  border: 1px solid var(--border2);
+}
+.btn-ghost:hover { background: var(--bg3); color: var(--text); border-color: var(--border2); }
+.status-badge {
+  height: 32px; padding: 0 12px;
+  border-radius: 20px;
+  font-size: 11px; font-family: var(--mono);
+  display: flex; align-items: center; gap: 5px;
+  background: var(--bg2); border: 1px solid var(--border);
+  color: var(--text2);
+}
+.status-badge.ok { background: var(--green-dim); border-color: rgba(0,200,150,0.25); color: var(--green); }
+.status-badge.err { background: var(--red-dim); border-color: rgba(255,77,106,0.25); color: var(--red); }
+.status-badge .dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
 
-  /* 默认页：遮罩较厚，保证文字可读 */
-  .slide::before{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;transition:background .7s ease}
-  .slide.light::before{background:rgba(var(--paper-rgb),.78);backdrop-filter:blur(3px)}
-  .slide.dark::before{background:rgba(var(--ink-rgb),.78);backdrop-filter:blur(3px)}
-  /* Hero 页：遮罩大幅降低，让 WebGL 背景明显透出 */
-  .slide.hero.light::before{background:rgba(var(--paper-rgb),.16);backdrop-filter:none}
-  .slide.hero.dark::before{background:rgba(var(--ink-rgb),.12);backdrop-filter:none}
-  /* Hero 页顶底微弱渐隐，保证 chrome/foot 区域可读 */
-  .slide.hero::after{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none}
-  .slide.hero.light::after{background:linear-gradient(180deg,rgba(var(--paper-rgb),.28) 0%,rgba(var(--paper-rgb),0) 14%,rgba(var(--paper-rgb),0) 86%,rgba(var(--paper-rgb),.28) 100%)}
-  .slide.hero.dark::after{background:linear-gradient(180deg,rgba(var(--ink-rgb),.32) 0%,rgba(var(--ink-rgb),0) 14%,rgba(var(--ink-rgb),0) 86%,rgba(var(--ink-rgb),.32) 100%)}
+/* ─── Hero ─── */
+.hero { margin-bottom: 24px; animation: fadeUp .4s ease both; }
+@keyframes fadeUp { from{opacity:0;transform:translateY(12px);} to{opacity:1;transform:translateY(0);} }
+.hero-top {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  flex-wrap: wrap; gap: 16px;
+}
+.hero-left {}
+.hero-sym { font-family: var(--display); font-size: 13px; font-weight: 600; color: var(--text2); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 2px; }
+.hero-name { font-size: 26px; font-weight: 300; color: var(--text); margin-bottom: 6px; }
+.hero-price-row { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.hero-price { font-family: var(--mono); font-size: 42px; font-weight: 500; letter-spacing: -0.02em; color: var(--text); }
+.hero-chg { font-family: var(--mono); font-size: 16px; font-weight: 500; }
+.hero-chg.up { color: var(--green); }
+.hero-chg.dn { color: var(--red); }
+.hero-meta { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+.tag {
+  font-size: 11px; font-family: var(--mono);
+  padding: 3px 9px; border-radius: 20px;
+  background: var(--bg3); border: 1px solid var(--border);
+  color: var(--text2);
+}
+.tag.green { background: var(--green-dim); border-color: rgba(0,200,150,0.2); color: var(--green); }
+.tag.red { background: var(--red-dim); border-color: rgba(255,77,106,0.2); color: var(--red); }
+.tag.blue { background: var(--blue-dim); border-color: rgba(77,159,255,0.2); color: var(--blue); }
 
-  /* ============ Magazine chrome：顶部 meta + 底部 foot ============ */
-  .chrome{display:flex;justify-content:space-between;align-items:flex-start;font-family:var(--mono);font-size:12px;letter-spacing:.18em;text-transform:uppercase;opacity:.7}
-  .chrome .left,.chrome .right{display:flex;gap:2.4em;align-items:center}
-  .chrome .sep{width:40px;height:1px;background:currentColor;opacity:.4}
-  .foot{margin-top:auto;display:flex;justify-content:space-between;align-items:flex-end;font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;opacity:.55}
-  .foot .title{font-family:var(--serif-zh);font-weight:400;letter-spacing:.05em;text-transform:none;opacity:.75;font-size:13px}
+/* ─── Metrics Grid ─── */
+.metrics {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: 12px; margin-bottom: 24px;
+  animation: fadeUp .4s .05s ease both;
+}
+@media(max-width:700px){ .metrics{ grid-template-columns:1fr 1fr; } }
+.metric {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 16px;
+  transition: border-color .2s;
+}
+.metric:hover { border-color: var(--border2); }
+.metric-label { font-size: 10px; font-family: var(--mono); color: var(--text3); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; }
+.metric-val { font-family: var(--mono); font-size: 18px; font-weight: 500; color: var(--text); }
+.metric-sub { font-size: 11px; color: var(--text3); margin-top: 3px; }
 
-  .tag{display:inline-block;font-family:var(--mono);font-size:11px;letter-spacing:.24em;text-transform:uppercase;padding:6px 14px;border:1px solid currentColor;opacity:.85}
-  .rule{width:100%;height:1px;background:currentColor;opacity:.25;margin:3vh 0}
-  .rule.v{width:1px;height:100%;margin:0}
+/* ─── Card ─── */
+.card {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 20px;
+  margin-bottom: 16px;
+  animation: fadeUp .4s .1s ease both;
+  transition: border-color .2s;
+}
+.card:hover { border-color: var(--border2); }
+.card-hdr {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 14px;
+}
+.card-title {
+  font-family: var(--mono); font-size: 10px;
+  color: var(--text3); text-transform: uppercase; letter-spacing: 0.1em;
+}
+.card-sub { font-size: 11px; color: var(--text3); }
 
-  /* ============ 字体规则 ============
-     · 衬线（Noto Serif SC / Playfair）：大标题、重点金句、数字
-     · 非衬线（Noto Sans SC）：正文描述、body、补充说明
-     · 等宽（IBM Plex Mono）：kicker、meta 小标签、foot 右侧
-  */
-  .kicker{font-family:var(--mono);font-size:12px;letter-spacing:.3em;text-transform:uppercase;opacity:.6;margin-bottom:2.6vh}
-  .display{font-family:var(--serif-en);font-weight:700;font-size:11vw;line-height:.92;letter-spacing:-.025em}
-  .display-zh{font-family:var(--serif-zh);font-weight:700;font-size:7.8vw;line-height:1.04;letter-spacing:-.005em}
-  .h1-zh{font-family:var(--serif-zh);font-weight:700;font-size:4.6vw;line-height:1.12;letter-spacing:-.005em}
-  .h2-zh{font-family:var(--serif-zh);font-weight:600;font-size:3.2vw;line-height:1.2;letter-spacing:0}
-  .h3-zh{font-family:var(--serif-zh);font-weight:500;font-size:1.9vw;line-height:1.35}
-  .body-zh{font-family:var(--sans-zh);font-weight:400;font-size:max(15px,1.22vw);line-height:1.75;opacity:.82;letter-spacing:.01em}
-  .body-serif{font-family:var(--serif-zh);font-weight:400;font-size:max(15px,1.3vw);line-height:1.65;opacity:.88}
-  .lead{font-family:var(--serif-zh);font-weight:400;font-size:1.9vw;line-height:1.4;opacity:.85}
-  .meta{font-family:var(--mono);font-size:max(11px,.88vw);letter-spacing:.16em;text-transform:uppercase;opacity:.6}
-  .big-num{font-family:var(--serif-en);font-weight:800;font-size:10vw;line-height:.85;letter-spacing:-.03em;font-feature-settings:"tnum"}
-  .mid-num{font-family:var(--serif-en);font-weight:700;font-size:5.5vw;line-height:.88;letter-spacing:-.02em;font-feature-settings:"tnum"}
-  .ghost{font-family:var(--serif-en);font-weight:900;font-size:34vw;line-height:.8;opacity:.06;letter-spacing:-.04em;position:absolute;font-feature-settings:"tnum"}
-  em{font-style:italic;font-family:var(--serif-en)}
-  .en{font-family:var(--serif-en);font-style:italic;font-weight:500}
+/* ─── Decision Box ─── */
+.decision-box {
+  background: linear-gradient(135deg, rgba(0,200,150,0.07) 0%, rgba(77,159,255,0.05) 100%);
+  border: 1px solid rgba(0,200,150,0.2);
+  border-radius: var(--radius);
+  padding: 20px; margin-bottom: 16px;
+  animation: fadeUp .4s ease both;
+  position: relative; overflow: hidden;
+}
+.decision-box::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--green), transparent);
+}
+.decision-hdr { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.decision-icon {
+  width: 28px; height: 28px; border-radius: 7px;
+  background: var(--green); display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 0 12px var(--green-dim); flex-shrink: 0;
+}
+.decision-icon svg { width: 14px; height: 14px; stroke: #000; fill: none; stroke-width: 2.2; stroke-linecap: round; }
+.decision-title { font-family: var(--display); font-size: 14px; font-weight: 600; color: var(--text); }
+.decision-body { font-size: 13px; color: var(--text2); line-height: 1.75; margin-bottom: 14px; }
+.decision-verdict {
+  display: flex; align-items: center; justify-content: space-between;
+  background: rgba(0,200,150,0.1); border: 1px solid rgba(0,200,150,0.2);
+  border-radius: var(--radius-sm); padding: 10px 16px;
+  margin-bottom: 12px; flex-wrap: wrap; gap: 8px;
+}
+.decision-op { font-family: var(--display); font-size: 14px; font-weight: 600; color: var(--green); }
+.decision-tgts { display: flex; gap: 16px; flex-wrap: wrap; }
+.decision-tgt { font-family: var(--mono); font-size: 11px; color: rgba(0,200,150,0.8); }
+.decision-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+.decision-tag {
+  font-size: 11px; font-family: var(--mono);
+  background: rgba(255,255,255,0.04); border: 1px solid var(--border2);
+  border-radius: 20px; padding: 3px 10px; color: var(--text2);
+}
 
-  /* ============ 布局工具 ============ */
-  .col{display:flex;flex-direction:column;gap:2.4vh}
-  .row{display:flex;align-items:center;gap:3vw}
-  .grid-6{display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(2,1fr);gap:4vw 6vw;flex:1;align-content:center;padding:2vh 0}
-  .grid-9{display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);gap:3vh 4vw;flex:1;align-content:center}
-  .grid-4{display:grid;grid-template-columns:repeat(2,1fr);grid-template-rows:repeat(2,1fr);gap:4vh 6vw;flex:1;align-content:center}
-  .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:4vw;flex:1;align-content:center}
-  .split{display:grid;grid-template-columns:1fr 1fr;gap:4vw;flex:1;align-items:center}
-  .split-55{display:grid;grid-template-columns:55fr 45fr;gap:5vw;flex:1;align-items:stretch}
-  .fill{flex:1}
-  .center{align-items:center;justify-content:center;text-align:center}
-  .bottom-left{position:absolute;left:6vw;bottom:9vh;max-width:50vw}
-  .bottom-right{position:absolute;right:6vw;bottom:9vh;max-width:50vw;text-align:right}
-  .top-right{position:absolute;right:6vw;top:6vh;text-align:right}
+/* ─── Charts ─── */
+.chart-wrap { position: relative; }
 
-  /* ============ Stat（数字矩阵） ============ */
-  .stat{display:flex;flex-direction:column;gap:1vh;align-items:flex-start}
-  .stat .n{font-family:var(--serif-en);font-weight:800;font-size:8vw;line-height:.88;letter-spacing:-.03em;font-feature-settings:"tnum"}
-  .stat .l{font-family:var(--sans-zh);font-size:max(13px,1.05vw);opacity:.7;margin-top:1vh;font-weight:400;line-height:1.5}
-  .stat .m{font-family:var(--mono);font-size:10px;letter-spacing:.22em;text-transform:uppercase;opacity:.5;margin-bottom:.2vh}
+/* ─── Tech Indicators ─── */
+.ind-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 7px 0; border-bottom: 1px solid var(--border);
+}
+.ind-row:last-child { border-bottom: none; }
+.ind-label { font-size: 12px; color: var(--text2); }
+.ind-val { font-family: var(--mono); font-size: 12px; color: var(--text); }
+.sig {
+  font-family: var(--mono); font-size: 10px;
+  padding: 2px 8px; border-radius: 20px; font-weight: 500;
+}
+.sig-buy  { background: var(--green-dim); color: var(--green); border: 1px solid rgba(0,200,150,0.2); }
+.sig-sell { background: var(--red-dim);   color: var(--red);   border: 1px solid rgba(255,77,106,0.2); }
+.sig-hold { background: rgba(245,166,35,0.12); color: var(--amber); border: 1px solid rgba(245,166,35,0.2); }
+.sig-neut { background: var(--bg3); color: var(--text2); border: 1px solid var(--border); }
 
-  /* ============ Callout（引用框） ============ */
-  .callout{padding:3vh 2.4vw;border-left:3px solid currentColor;position:relative;font-family:var(--serif-zh);font-size:max(15px,1.2vw);line-height:1.55;opacity:.92}
-  .slide.light .callout{background:rgba(var(--ink-rgb),.05)}
-  .slide.dark .callout{background:rgba(var(--paper-rgb),.06)}
-  .callout .cite{display:block;margin-top:1.6vh;font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;opacity:.6}
-  .callout .q-big{font-family:var(--serif-zh);font-weight:600;font-size:max(17px,1.6vw);line-height:1.42}
+/* ─── Progress Bar ─── */
+.prog-wrap { margin: 8px 0; }
+.prog-labels { display: flex; justify-content: space-between; margin-bottom: 4px; }
+.prog-labels span { font-family: var(--mono); font-size: 10px; color: var(--text3); }
+.prog-track { height: 4px; background: var(--bg3); border-radius: 2px; overflow: hidden; }
+.prog-fill { height: 4px; border-radius: 2px; transition: width .5s ease; }
 
-  /* ============ Platform（平台卡） ============ */
-  .plat{display:flex;flex-direction:column;justify-content:flex-end;padding:2vh 0;border-top:1px solid currentColor;border-color:rgba(127,127,127,.35)}
-  .plat .name{font-family:var(--serif-zh);font-weight:700;font-size:1.8vw;margin-bottom:.6vh}
-  .plat .nb{font-family:var(--serif-en);font-weight:700;font-size:3.2vw;letter-spacing:-.02em;line-height:1;font-feature-settings:"tnum"}
-  .plat .sub{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;opacity:.55;margin-top:.6vh}
-  .plat .fill{font-family:var(--sans-zh);font-weight:300;font-size:2.4vw;opacity:.28;letter-spacing:-.01em;line-height:1}
+/* ─── News ─── */
+.news-item { padding: 12px 0; border-bottom: 1px solid var(--border); }
+.news-item:last-child { border-bottom: none; }
+.news-meta { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; flex-wrap: wrap; }
+.news-src { font-family: var(--mono); font-size: 10px; color: var(--text3); font-weight: 500; }
+.news-time { font-size: 10px; color: var(--text3); }
+.news-sent { font-family: var(--mono); font-size: 10px; padding: 1px 7px; border-radius: 20px; }
+.news-sent.pos { background: var(--green-dim); color: var(--green); border: 1px solid rgba(0,200,150,0.2); }
+.news-sent.neg { background: var(--red-dim);   color: var(--red);   border: 1px solid rgba(255,77,106,0.2); }
+.news-sent.neu { background: var(--bg3); color: var(--text3); border: 1px solid var(--border); }
+.news-title { font-size: 13px; color: var(--text); line-height: 1.5; margin-bottom: 3px; }
+.news-summary { font-size: 11px; color: var(--text2); line-height: 1.55; }
+.news-link { font-size: 11px; color: var(--blue); text-decoration: none; }
+.news-link:hover { text-decoration: underline; }
 
-  /* ============ Rowline（表格行） ============ */
-  .rowline{display:grid;grid-template-columns:1fr 2fr 1fr;gap:2vw;padding:2.2vh 0;border-top:1px solid currentColor;align-items:center;border-color:rgba(127,127,127,.25)}
-  .rowline:last-child{border-bottom:1px solid currentColor;border-color:rgba(127,127,127,.25)}
-  .rowline .k{font-family:var(--serif-zh);font-weight:700;font-size:1.7vw}
-  .rowline .v{font-family:var(--sans-zh);font-weight:400;font-size:max(14px,1.2vw);opacity:.85;line-height:1.55}
-  .rowline .m{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;opacity:.6;justify-self:end}
+/* ─── Sentiment Bars ─── */
+.sent-bar { display: flex; align-items: center; gap: 10px; padding: 5px 0; border-bottom: 1px solid var(--border); }
+.sent-bar:last-child { border-bottom: none; }
+.sent-bar-label { font-size: 11px; color: var(--text2); width: 36px; flex-shrink: 0; }
+.sent-bar-track { flex: 1; height: 4px; background: var(--bg3); border-radius: 2px; overflow: hidden; }
+.sent-bar-fill { height: 4px; border-radius: 2px; transition: width .6s ease; }
+.sent-bar-pct { font-family: var(--mono); font-size: 11px; width: 34px; text-align: right; }
 
-  /* ============ Pillar（支柱卡片） ============ */
-  .pillar{display:flex;flex-direction:column;gap:1.8vh}
-  .pillar .ic{font-family:var(--serif-en);font-style:italic;font-size:2.6vw;opacity:.45;font-weight:400}
-  .pillar .ic svg{width:2.8vw;height:2.8vw;stroke-width:1.2;opacity:.7}
-  .pillar .t{font-family:var(--serif-zh);font-weight:700;font-size:2.4vw;line-height:1.1}
-  .pillar .d{font-family:var(--sans-zh);font-weight:400;font-size:max(14px,1.1vw);opacity:.76;line-height:1.6}
+/* ─── Two Column ─── */
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+@media(max-width:700px){ .row2{ grid-template-columns:1fr; } }
 
-  /* ============ Signature / Highlight ============ */
-  .sign{font-family:var(--serif-en);font-style:italic;font-weight:500;font-size:2vw;opacity:.7}
-  .hi{position:relative;display:inline}
-  .slide.dark .hi::after{content:"";position:absolute;left:-.1em;right:-.1em;bottom:-.05em;height:.28em;background:rgba(var(--paper-rgb),.15);z-index:-1}
-  .slide.light .hi::after{content:"";position:absolute;left:-.1em;right:-.1em;bottom:-.05em;height:.28em;background:rgba(var(--ink-rgb),.08);z-index:-1}
+/* ─── Action Buttons ─── */
+.action-row { display: flex; gap: 8px; margin-top: 20px; flex-wrap: wrap; }
 
-  /* ============ Icons（Lucide via CDN） ============ */
-  .ico{width:1em;height:1em;display:inline-block;vertical-align:-.12em;stroke:currentColor;fill:none;stroke-width:1.4;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
-  .ico-lg,.ico-md,.ico-sm{fill:none;stroke:currentColor;stroke-linecap:round;stroke-linejoin:round}
-  .ico-lg{width:2.6vw;height:2.6vw;stroke-width:1.2;display:inline-block}
-  .ico-md{width:1.8vw;height:1.8vw;stroke-width:1.3;display:inline-block;vertical-align:-.4em}
-  .ico-sm{width:1.1vw;height:1.1vw;stroke-width:1.4;display:inline-block;vertical-align:-.15em;opacity:.7}
+/* ─── Loading / Error ─── */
+.state-block {
+  text-align: center; padding: 48px 24px;
+  font-family: var(--mono); font-size: 13px; color: var(--text3);
+}
+.state-block .big { font-size: 32px; margin-bottom: 8px; }
+.error-block {
+  padding: 14px 18px; border-radius: var(--radius);
+  background: var(--red-dim); border: 1px solid rgba(255,77,106,0.2);
+  font-size: 12px; color: var(--red); font-family: var(--mono);
+  margin-bottom: 16px;
+}
+.spinner {
+  display: inline-block; width: 18px; height: 18px;
+  border: 2px solid var(--border2); border-top-color: var(--green);
+  border-radius: 50%; animation: spin .7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
 
-  /* ============ 图片占位（虚线框，提示设计师位置） ============ */
-  .img-slot{border:1.5px dashed rgba(127,127,127,.4);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:1vh;padding:2vh 2vw;font-family:var(--mono);font-size:10px;letter-spacing:.28em;text-transform:uppercase;opacity:.55;position:relative;aspect-ratio:16/9;width:100%;max-height:56vh;margin-inline:auto;box-sizing:border-box}
-  .img-slot::before{content:"";position:absolute;inset:8px;border:1px solid currentColor;opacity:.2}
-  .img-slot .plus{font-size:2vw;font-weight:300;opacity:.5;letter-spacing:0}
-  .img-slot .label{position:relative;z-index:2;text-align:center}
-  .img-slot.r-4x3{aspect-ratio:4/3}
-  .img-slot.r-3x2{aspect-ratio:3/2}
-  .img-slot.r-1x1{aspect-ratio:1/1}
+/* ─── Config Modal ─── */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 100;
+  display: flex; align-items: center; justify-content: center;
+  backdrop-filter: blur(4px);
+  opacity: 0; pointer-events: none; transition: opacity .2s;
+}
+.modal-overlay.open { opacity: 1; pointer-events: all; }
+.modal {
+  background: var(--bg2); border: 1px solid var(--border2);
+  border-radius: 16px; padding: 28px; width: 100%; max-width: 460px;
+  transform: translateY(16px); transition: transform .2s;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.6);
+}
+.modal-overlay.open .modal { transform: translateY(0); }
+.modal h2 { font-family: var(--display); font-size: 18px; margin-bottom: 6px; }
+.modal p { font-size: 12px; color: var(--text3); margin-bottom: 20px; }
+.field { margin-bottom: 16px; }
+.field label { display: block; font-family: var(--mono); font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; }
+.field input {
+  width: 100%; height: 40px; padding: 0 12px;
+  background: var(--bg3); border: 1px solid var(--border2);
+  border-radius: var(--radius-sm); color: var(--text);
+  font-family: var(--mono); font-size: 13px; outline: none;
+  transition: border-color .15s;
+}
+.field input:focus { border-color: var(--green); }
+.modal-footer { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
 
-  /* ============ 图片实填框（关键：固定高度 + 只裁底部） ============
-     重要约束：高度用内联 height:Nvh 精确控制，不要用 aspect-ratio（会撑破布局）
-     object-position:top center 保证严禁裁剪顶部和左右，只裁剪底部
-  */
-  .frame-img{overflow:hidden;position:relative;background:rgba(0,0,0,.04);box-sizing:border-box;width:100%;border-radius:4px}
-  .slide.dark .frame-img{background:rgba(255,255,255,.04);border-color:rgba(255,255,255,.12)}
-  .frame-img > img{width:100%;height:100%;object-fit:cover;object-position:top center;display:block}
-  .frame-cap{display:flex;justify-content:space-between;align-items:baseline;gap:1vw;margin-top:.8vh;font-family:var(--mono);font-size:10px;letter-spacing:.22em;text-transform:uppercase;opacity:.72}
-  .frame-cap .pf{font-family:var(--serif-zh);font-weight:600;font-size:max(13px,1vw);letter-spacing:.04em;text-transform:none;opacity:.94}
-  .frame-cap .nb{font-family:var(--serif-en);font-style:italic;font-size:max(15px,1.2vw);letter-spacing:.02em;text-transform:none;opacity:.88}
-  .frame-cap .idx{font-family:var(--mono);opacity:.5}
-  figure.tile{display:flex;flex-direction:column;margin:0;min-width:0}
-  figure.tile > .frame-img{flex:0 0 auto}
+/* ─── Watchlist ─── */
+.watchlist { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
+.wl-item {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 12px; border-radius: var(--radius-sm);
+  background: var(--bg2); border: 1px solid var(--border);
+  font-family: var(--mono); font-size: 12px; cursor: pointer;
+  transition: all .15s; color: var(--text2);
+}
+.wl-item:hover, .wl-item.active { border-color: var(--green); color: var(--green); background: var(--green-dim); }
+.wl-item .wl-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+.wl-chg { font-size: 10px; }
 
-  /* ============ 导航 ============ */
-  #nav{position:fixed;left:50%;bottom:2.6vh;transform:translateX(-50%);z-index:30;display:flex;gap:10px;padding:8px 14px;border-radius:999px;background:rgba(0,0,0,.18);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
-  #nav .dot{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.3);cursor:pointer;transition:all .3s ease;border:0;padding:0}
-  #nav .dot:hover{background:rgba(255,255,255,.5);transform:scale(1.15)}
-  #nav .dot.active{background:rgba(255,255,255,.95);width:22px;border-radius:999px}
-  body.light-bg #nav{background:rgba(255,255,255,.25)}
-  body.light-bg #nav .dot{background:rgba(var(--ink-rgb),.25)}
-  body.light-bg #nav .dot.active{background:rgba(var(--ink-rgb),.9)}
-  #hint{position:fixed;bottom:3vh;right:3vw;z-index:30;font-family:var(--mono);font-size:10px;letter-spacing:.2em;text-transform:uppercase;opacity:.4;mix-blend-mode:difference;color:#aaa}
+/* ─── Footer ─── */
+.footer {
+  margin-top: 60px; padding-top: 24px; border-top: 1px solid var(--border);
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 11px; color: var(--text3); font-family: var(--mono);
+  flex-wrap: wrap; gap: 8px;
+}
 
-  /* ============================================================
-     ============ LAYOUTS API · 面向 agent 的类（v2）============
-     所有 layouts.md 中的骨架都基于下面这套命名。
-     如果你在 layouts.md 里看到某个类，它必须在下面有定义。
-     ============================================================ */
+/* ─── Initial screen ─── */
+#initialScreen {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; min-height: 40vh;
+  text-align: center; padding: 40px 0;
+}
+.initial-title { font-family: var(--display); font-size: 36px; font-weight: 700; margin-bottom: 10px; letter-spacing: -0.03em; }
+.initial-title span { color: var(--green); }
+.initial-sub { font-size: 14px; color: var(--text3); margin-bottom: 32px; }
+.initial-chips { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.chip {
+  padding: 6px 14px; border-radius: 20px;
+  background: var(--bg2); border: 1px solid var(--border2);
+  font-family: var(--mono); font-size: 12px; color: var(--text2);
+  cursor: pointer; transition: all .15s;
+}
+.chip:hover { background: var(--green-dim); border-color: rgba(0,200,150,0.3); color: var(--green); }
 
-  /* ---------- .frame：每页主内容容器 ---------- */
-  .frame{flex:1;display:flex;flex-direction:column;min-height:0}
-  /* 当 .frame 同时加了 grid 类时，grid 的 display:grid 覆盖 flex */
-  .frame.grid-2-7-5,
-  .frame.grid-2-6-6,
-  .frame.grid-2-8-4,
-  .frame.grid-3-3,
-  .frame.grid-6{display:grid}
-
-  /* ---------- 标题层级（API 名称，衬线为主） ---------- */
-  .h-hero{
-    font-family:var(--serif-zh);
-    font-weight:900;
-    font-size:10vw;
-    line-height:.96;
-    letter-spacing:-.02em;
-  }
-  .h-xl{
-    font-family:var(--serif-zh);
-    font-weight:700;
-    font-size:6.2vw;
-    line-height:1.08;
-    letter-spacing:-.01em;
-  }
-  .h-sub{
-    font-family:var(--serif-zh);
-    font-weight:500;
-    font-size:3.1vw;
-    line-height:1.25;
-    letter-spacing:0;
-    opacity:.7;
-  }
-  .h-md{
-    font-family:var(--serif-zh);
-    font-weight:600;
-    font-size:2.3vw;
-    line-height:1.3;
-  }
-  /* 英文标题专用（Playfair 衬线） */
-  .h-hero-en,.h-xl-en{font-family:var(--serif-en);letter-spacing:-.025em}
-
-  /* ---------- lead 引语 ---------- */
-  .lead{
-    font-family:var(--serif-zh);
-    font-weight:400;
-    font-size:1.75vw;
-    line-height:1.5;
-    opacity:.86;
-  }
-
-  /* ---------- meta-row 底部元数据 ---------- */
-  .meta-row{
-    display:flex;
-    gap:1.2em;
-    align-items:baseline;
-    flex-wrap:wrap;
-    font-family:var(--mono);
-    font-size:max(12px,.92vw);
-    letter-spacing:.16em;
-    text-transform:uppercase;
-    opacity:.6;
-  }
-
-  /* ---------- stat-card（数据大字报用） ---------- */
-  .stat-card{
-    display:flex;
-    flex-direction:column;
-    gap:.8vh;
-    align-items:flex-start;
-    padding-top:1.6vh;
-    border-top:1px solid currentColor;
-    border-color:rgba(127,127,127,.3);
-  }
-  .stat-card .stat-label{
-    font-family:var(--mono);
-    font-size:max(10px,.78vw);
-    letter-spacing:.24em;
-    text-transform:uppercase;
-    opacity:.55;
-  }
-  .stat-card .stat-nb{
-    font-family:var(--serif-en);
-    font-weight:800;
-    font-size:5.8vw;
-    line-height:.9;
-    letter-spacing:-.03em;
-    font-feature-settings:"tnum";
-    margin-top:.4vh;
-  }
-  .stat-card .stat-nb .stat-unit{
-    font-family:var(--serif-zh);
-    font-weight:500;
-    font-size:.38em;
-    letter-spacing:0;
-    opacity:.72;
-    margin-left:.14em;
-  }
-  .stat-card .stat-note{
-    font-family:var(--sans-zh);
-    font-weight:400;
-    font-size:max(13px,1.05vw);
-    line-height:1.5;
-    opacity:.72;
-    margin-top:.6vh;
-  }
-  /* 当 stat-card 用于 grid-4（2x2），数字可以更大 */
-  .grid-4 .stat-card .stat-nb{font-size:7.5vw}
-  /* 当只有 3 个，字也可以稍大 */
-  .grid-3 .stat-card .stat-nb{font-size:6.8vw}
-
-  /* ---------- pipeline（流水线） ---------- */
-  .pipeline-section{
-    margin-top:4.4vh;
-    padding-top:2.8vh;
-    border-top:1px dashed rgba(127,127,127,.32);
-  }
-  .pipeline-section:first-of-type{
-    border-top:0;
-    padding-top:0;
-    margin-top:3vh;
-  }
-  .pipeline-label{
-    font-family:var(--mono);
-    font-size:max(11px,.85vw);
-    letter-spacing:.24em;
-    text-transform:uppercase;
-    opacity:.62;
-    margin-bottom:2.2vh;
-  }
-  .pipeline{
-    display:grid;
-    grid-template-columns:repeat(5,1fr);
-    gap:1.2vw;
-  }
-  .pipeline[data-cols="3"]{grid-template-columns:repeat(3,1fr)}
-  .pipeline[data-cols="4"]{grid-template-columns:repeat(4,1fr)}
-  .pipeline[data-cols="6"]{grid-template-columns:repeat(6,1fr)}
-  .step{
-    display:flex;
-    flex-direction:column;
-    gap:.8vh;
-    padding-top:1.4vh;
-    border-top:1px solid currentColor;
-    border-color:rgba(127,127,127,.35);
-  }
-  .step-nb{
-    font-family:var(--serif-en);
-    font-style:italic;
-    font-weight:500;
-    font-size:1.15vw;
-    opacity:.45;
-  }
-  .step-title{
-    font-family:var(--sans-zh);
-    font-weight:700;
-    font-size:1.55vw;
-    letter-spacing:.01em;
-    line-height:1.2;
-  }
-  .step-desc{
-    font-family:var(--sans-zh);
-    font-weight:400;
-    font-size:max(12px,.95vw);
-    line-height:1.45;
-    opacity:.72;
-  }
-
-  /* ---------- 网格（layouts.md 所用） ---------- */
-  /* 这些类独立挂到任何容器上都能生效，不依赖 .frame 复合选择器 */
-  .grid-2-7-5{display:grid;grid-template-columns:7fr 5fr;gap:3vw 4vh;align-items:start}
-  .grid-2-6-6{display:grid;grid-template-columns:1fr 1fr;gap:3vw 4vh;align-items:start}
-  .grid-2-8-4{display:grid;grid-template-columns:8fr 4fr;gap:3vw 4vh;align-items:start}
-  .grid-3-3{
-    display:grid;
-    grid-template-columns:repeat(3,1fr);
-    grid-auto-rows:minmax(0,1fr);
-    gap:2.4vh 2vw;
-  }
-  /* grid-6 已在旧样式里定义为 3x2，这里仅补 align */
-
-  /* ---------- 图片 frame-img（layouts.md 主命名） ---------- */
-  /* 在旧样式里已定义，这里补 img-cap 命名别名与增强 */
-  figure.frame-img{margin:0;display:flex;flex-direction:column;min-width:0}
-  .img-cap{
-    display:block;
-    margin-top:.8vh;
-    font-family:var(--mono);
-    font-size:max(10px,.8vw);
-    letter-spacing:.22em;
-    text-transform:uppercase;
-    opacity:.6;
-  }
-  /* callout src 命名别名 */
-  .callout-src{
-    display:block;
-    margin-top:1.6vh;
-    font-family:var(--mono);
-    font-size:11px;
-    letter-spacing:.2em;
-    text-transform:uppercase;
-    opacity:.6;
-  }
-
-  /* ---------- chrome & foot 补位（layouts.md 简单写法） ---------- */
-  .chrome{font-family:var(--mono);font-size:max(11px,.78vw);letter-spacing:.2em;text-transform:uppercase;opacity:.62}
-  .foot{font-family:var(--mono);font-size:max(11px,.78vw);letter-spacing:.18em;text-transform:uppercase;opacity:.5}
-
-  /* ---------- 响应式降级 ---------- */
-  @media (max-width:900px){
-    .display{font-size:16vw}
-    .display-zh{font-size:12vw}
-    .h1-zh{font-size:7vw}
-    .h-hero{font-size:14vw}
-    .h-xl{font-size:9vw}
-    .pipeline{grid-template-columns:repeat(2,1fr)}
-    .grid-2-7-5,.grid-2-6-6,.grid-2-8-4{grid-template-columns:1fr}
-  }
+/* ─── Scrollbar ─── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--bg3); border-radius: 3px; }
 </style>
 </head>
 <body>
 
-<canvas id="bg-dark" class="bg"></canvas>
-<canvas id="bg-light" class="bg"></canvas>
-<div id="hint">← → 翻页 · ESC 索引</div>
-
-<div id="deck">
-
-<!-- ============================================================
-     SLIDES 插入区 · 在此处填充所有 <section class="slide ..."> 页面
-     每页模板参考 references/page-patterns.md
-     页面组件参考 references/components.md
-     ============================================================ -->
-
-<!-- SLIDES_HERE -->
-
+<!-- Config Modal -->
+<div class="modal-overlay" id="configModal">
+  <div class="modal">
+    <h2>⚙️ API 設定</h2>
+    <p>設定行情資料與 AI 分析所需的 API Key。</p>
+    <div class="field">
+      <label>Finnhub API Key <span style="color:var(--text3);font-weight:400;">（新聞情緒）</span></label>
+      <input type="text" id="cfgFH" placeholder="如：csmmjqpr01qn12je..."/>
+    </div>
+    <div class="field">
+      <label>OpenRouter API Key <span style="color:var(--purple);font-weight:400;">（AI 深度分析）</span></label>
+      <input type="text" id="cfgOR" placeholder="sk-or-v1-..."/>
+    </div>
+    <div class="field">
+      <label>AI 模型 <span style="color:var(--text3);font-weight:400;">（OpenRouter）</span></label>
+      <select id="cfgModel">
+        <optgroup label="🆓 免費自動選擇">
+          <option value="openrouter/free">openrouter/free — 自動挑選當下可用免費模型</option>
+        </optgroup>
+        <optgroup label="🆓 免費指定模型">
+          <option value="google/gemini-2.0-flash-exp:free">google/gemini-2.0-flash-exp:free</option>
+          <option value="google/gemini-flash-1.5:free">google/gemini-flash-1.5:free</option>
+          <option value="meta-llama/llama-4-scout:free">meta-llama/llama-4-scout:free</option>
+          <option value="meta-llama/llama-4-maverick:free">meta-llama/llama-4-maverick:free</option>
+          <option value="meta-llama/llama-3.3-70b-instruct:free">meta-llama/llama-3.3-70b-instruct:free</option>
+          <option value="deepseek/deepseek-chat-v3-0324:free">deepseek/deepseek-chat-v3-0324:free</option>
+          <option value="deepseek/deepseek-r1:free">deepseek/deepseek-r1:free</option>
+          <option value="mistralai/mistral-7b-instruct:free">mistralai/mistral-7b-instruct:free</option>
+          <option value="qwen/qwen3-8b:free">qwen/qwen3-8b:free</option>
+        </optgroup>
+        <optgroup label="💰 付費高品質">
+          <option value="anthropic/claude-sonnet-4-5">anthropic/claude-sonnet-4-5</option>
+          <option value="anthropic/claude-3-5-haiku">anthropic/claude-3-5-haiku</option>
+          <option value="openai/gpt-4o-mini">openai/gpt-4o-mini</option>
+          <option value="openai/gpt-4o">openai/gpt-4o</option>
+          <option value="google/gemini-pro-1.5">google/gemini-pro-1.5</option>
+        </optgroup>
+      </select>
+    </div>
+    <div style="font-size:11px;color:var(--text3);line-height:1.6;margin-top:-4px;">
+      取得免費 Key：
+      <a href="https://finnhub.io/register" target="_blank" style="color:var(--blue);">finnhub.io</a> ·
+      <a href="https://openrouter.ai/keys" target="_blank" style="color:var(--purple);">openrouter.ai</a>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeConfig()">取消</button>
+      <button class="btn btn-primary" onclick="saveConfig()">儲存</button>
+    </div>
+  </div>
 </div>
 
-<div id="nav"></div>
+<div class="shell">
+
+  <!-- Header -->
+  <header class="header">
+    <div class="logo">
+      <div class="logo-mark">
+        <svg viewBox="0 0 16 16"><polyline points="1,12 5,7 9,10 15,3"/></svg>
+      </div>
+      <span class="logo-text">Stock<span>AI</span></span>
+    </div>
+    <div class="header-right">
+      <div class="api-indicator">
+        <span class="api-dot"></span>
+        YF · Finnhub · OpenRouter
+      </div>
+      <button class="btn btn-ghost" style="height:36px;font-size:12px;" onclick="openConfig()">⚙ API Key</button>
+    </div>
+  </header>
+
+  <!-- Search -->
+  <div class="search-wrap">
+    <div class="search-input-wrap">
+      <svg class="search-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8">
+        <circle cx="6.5" cy="6.5" r="4.5"/><line x1="10" y1="10" x2="14" y2="14"/>
+      </svg>
+      <input type="text" id="tickerInput" placeholder="AAPL, NVDA, TSLA, MSFT..." value=""
+             onkeydown="if(event.key==='Enter')loadStock()"/>
+    </div>
+    <button class="btn btn-primary" onclick="loadStock()">分析</button>
+    <span id="statusBadge" class="status-badge"><span class="dot"></span>等待查詢</span>
+  </div>
+
+  <!-- Watchlist -->
+  <div class="watchlist" id="watchlist"></div>
+
+  <!-- Initial Screen -->
+  <div id="initialScreen">
+    <div class="initial-title">美股 / 台股<span>深度分析</span></div>
+    <div class="initial-sub">支援中文搜尋、台股代號自動補完 (.TW) × AI 技術指標分析</div>
+    <div class="initial-chips">
+      <span class="chip" onclick="quickLoad('AAPL')">AAPL</span>
+      <span class="chip" onclick="quickLoad('NVDA')">NVDA</span>
+      <span class="chip" onclick="quickLoad('TSLA')">TSLA</span>
+      <span class="chip" onclick="quickLoad('2330')">台積電</span>
+      <span class="chip" onclick="quickLoad('2542')">興富發</span>
+      <span class="chip" onclick="quickLoad('2501')">國建</span>
+      <span class="chip" onclick="quickLoad('1101')">台泥</span>
+    </div>
+  </div>
+
+  <!-- Loading -->
+  <div id="loadingBlock" style="display:none;" class="state-block">
+    <div class="big"><span class="spinner"></span></div>
+    <div>正在獲取 <strong id="loadingTicker" style="color:var(--green);"></strong> 資料...</div>
+    <div style="margin-top:6px;font-size:11px;">Yahoo Finance 報價 × Finnhub 新聞</div>
+  </div>
+
+  <!-- Error -->
+  <div id="errorBlock" style="display:none;" class="error-block"></div>
+
+  <!-- Main Content -->
+  <div id="mainContent" style="display:none;">
+
+    <!-- Hero -->
+    <div class="hero" id="heroSection">
+      <div class="hero-top">
+        <div class="hero-left">
+          <div class="hero-sym" id="heroSym"></div>
+          <div class="hero-name" id="heroName"></div>
+          <div class="hero-price-row">
+            <span class="hero-price" id="heroPrice"></span>
+            <span class="hero-chg" id="heroChg"></span>
+          </div>
+          <div class="hero-meta" id="heroMeta"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Metrics -->
+    <div class="metrics" id="metricsGrid">
+      <div class="metric"><div class="metric-label">開盤 / 昨收</div><div class="metric-val" id="mOpen">—</div></div>
+      <div class="metric"><div class="metric-label">今日高 / 低</div><div class="metric-val" id="mHL">—</div></div>
+      <div class="metric"><div class="metric-label">52 週區間</div><div class="metric-val" id="m52w">—</div><div class="metric-sub" id="m52wSub"></div></div>
+      <div class="metric"><div class="metric-label">成交量</div><div class="metric-val" id="mVol">—</div></div>
+    </div>
+
+    <!-- Decision -->
+    <div class="decision-box">
+      <div class="decision-hdr">
+        <div class="decision-icon">
+          <svg viewBox="0 0 14 14"><polyline points="1,11 5,6 8,9 13,2"/></svg>
+        </div>
+        <span class="decision-title" id="decTitle">技術 + 情緒分析</span>
+      </div>
+      <div class="decision-body" id="decBody">—</div>
+      <div class="decision-verdict" id="decVerdict" style="display:none;">
+        <span class="decision-op" id="decOp"></span>
+        <div class="decision-tgts" id="decTgts"></div>
+      </div>
+      <div class="decision-tags" id="decTags"></div>
+    </div>
+
+    <!-- Price Chart -->
+    <div class="card">
+      <div class="card-hdr">
+        <span class="card-title">收盤價走勢（近 60 交易日）</span>
+        <div style="display:flex;gap:12px;">
+          <span style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text3);">
+            <span style="width:10px;height:1.5px;background:var(--green);display:inline-block;"></span>Close
+          </span>
+          <span style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text3);">
+            <span style="width:10px;height:1.5px;background:var(--blue);display:inline-block;"></span>MA20
+          </span>
+          <span style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text3);">
+            <span style="width:10px;height:1.5px;background:var(--amber);display:inline-block;border-top:1.5px dashed var(--amber);height:0;"></span>MA50
+          </span>
+        </div>
+      </div>
+      <div class="chart-wrap" style="height:230px;">
+        <canvas id="priceChart"></canvas>
+      </div>
+    </div>
+
+    <!-- Volume -->
+    <div class="card">
+      <div class="card-hdr"><span class="card-title">成交量</span><span class="card-sub" id="volAvgLabel"></span></div>
+      <div class="chart-wrap" style="height:80px;">
+        <canvas id="volChart"></canvas>
+      </div>
+    </div>
+
+    <!-- Tech + RSI row -->
+    <div class="row2">
+      <div class="card" style="margin-bottom:0;">
+        <div class="card-hdr"><span class="card-title">技術指標</span></div>
+        <div class="ind-row"><span class="ind-label">MA20</span><span class="ind-val" id="iMA20">—</span></div>
+        <div class="ind-row"><span class="ind-label">MA50</span><span class="ind-val" id="iMA50">—</span></div>
+        <div class="ind-row"><span class="ind-label">Price vs MA20</span><span class="ind-val" id="iVsMA20">—</span></div>
+        <div class="ind-row"><span class="ind-label">Price vs MA50</span><span class="ind-val" id="iVsMA50">—</span></div>
+        <div class="ind-row"><span class="ind-label">RSI (14)</span><span class="ind-val" id="iRSI">—</span></div>
+        <div class="ind-row"><span class="ind-label">RSI 狀態</span><span class="sig sig-neut" id="iRSIState">—</span></div>
+        <div class="ind-row"><span class="ind-label">年化波動率</span><span class="ind-val" id="iVol">—</span></div>
+        <div class="ind-row"><span class="ind-label">趨勢判斷</span><span class="sig sig-neut" id="iTrend">—</span></div>
+        <div style="margin-top:14px;">
+          <div class="card-title" style="margin-bottom:10px;">52 週位置</div>
+          <div class="prog-wrap">
+            <div class="prog-labels"><span>$<span id="lo52">—</span></span><span id="pct52">—</span><span>$<span id="hi52">—</span></span></div>
+            <div class="prog-track"><div class="prog-fill" id="fill52" style="background:var(--blue);width:0%;"></div></div>
+          </div>
+          <div class="card-title" style="margin-bottom:10px;margin-top:12px;">今日區間</div>
+          <div class="prog-wrap">
+            <div class="prog-labels"><span id="dayLo">—</span><span id="dayPctLabel">—</span><span id="dayHi">—</span></div>
+            <div class="prog-track"><div class="prog-fill" id="fillDay" style="background:var(--green);width:0%;"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:0;">
+        <div class="card-hdr"><span class="card-title">RSI (14)</span></div>
+        <div class="chart-wrap" style="height:130px;">
+          <canvas id="rsiChart"></canvas>
+        </div>
+        <div style="margin-top:18px;">
+          <div class="card-hdr" style="margin-bottom:10px;"><span class="card-title">Finnhub 情緒彙總</span><span class="card-sub" id="sentAvgLabel"></span></div>
+          <div id="sentimentSummary"><div style="font-size:12px;color:var(--text3);">載入中...</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- News -->
+    <div class="card">
+      <div class="card-hdr">
+        <span class="card-title">最新新聞 <span style="color:var(--green);font-size:9px;">· Finnhub</span></span>
+        <span class="card-sub" id="newsCountLabel"></span>
+      </div>
+      <div id="newsContainer"><div class="state-block" style="padding:20px;"><span class="spinner"></span></div></div>
+    </div>
+
+    <!-- AI Analysis Panel -->
+    <div class="ai-panel" id="aiPanel" style="display:none;">
+      <div class="ai-panel-hdr" onclick="toggleAiPanel()">
+        <span class="ai-panel-title">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="var(--purple)" stroke-width="2" stroke-linecap="round"><circle cx="6" cy="3" r="2"/><path d="M1 10.5c0-2.76 2.24-4 5-4s5 1.24 5 4"/></svg>
+          AI 深度分析
+          <span class="ai-model-badge" id="aiModelBadge">openrouter/free</span>
+        </span>
+        <span id="aiPanelChevron" style="color:var(--text3);font-size:12px;">▼</span>
+      </div>
+      <div class="ai-panel-body" id="aiPanelBody">
+        <div class="ai-toolbar">
+          <select class="model-select" id="modelSelect" onchange="onModelChange()">
+            <optgroup label="🆓 免費自動選擇">
+              <option value="openrouter/free">openrouter/free — 自動挑選免費模型</option>
+            </optgroup>
+            <optgroup label="🆓 免費指定模型">
+              <option value="google/gemini-2.0-flash-exp:free">gemini-2.0-flash-exp:free</option>
+              <option value="google/gemini-flash-1.5:free">gemini-flash-1.5:free</option>
+              <option value="meta-llama/llama-4-scout:free">llama-4-scout:free</option>
+              <option value="meta-llama/llama-4-maverick:free">llama-4-maverick:free</option>
+              <option value="meta-llama/llama-3.3-70b-instruct:free">llama-3.3-70b:free</option>
+              <option value="deepseek/deepseek-chat-v3-0324:free">deepseek-v3:free</option>
+              <option value="deepseek/deepseek-r1:free">deepseek-r1:free</option>
+              <option value="mistralai/mistral-7b-instruct:free">mistral-7b:free</option>
+              <option value="qwen/qwen3-8b:free">qwen3-8b:free</option>
+            </optgroup>
+            <optgroup label="💰 付費高品質">
+              <option value="anthropic/claude-sonnet-4-5">claude-sonnet-4-5</option>
+              <option value="anthropic/claude-3-5-haiku">claude-3-5-haiku</option>
+              <option value="openai/gpt-4o-mini">gpt-4o-mini</option>
+              <option value="openai/gpt-4o">gpt-4o</option>
+              <option value="google/gemini-pro-1.5">gemini-pro-1.5</option>
+            </optgroup>
+          </select>
+        </div>
+        <div class="prompt-btns" id="promptBtns" style="margin-bottom:16px;"></div>
+        <div class="ai-response" id="aiResponse" style="display:none;"></div>
+      </div>
+    </div>
+
+    <!-- Legacy action row kept empty -->
+    <div id="actionRow"></div>
+
+  </div><!-- /mainContent -->
+
+  <footer class="footer">
+    <span>StockAI · 美股深度分析</span>
+    <span>資料：Yahoo Finance + Finnhub · 僅供參考，非投資建議</span>
+  </footer>
+</div><!-- /shell -->
 
 <script>
-/* =============== WebGL 双背景 ===============
-   深色页：Holographic Dispersion（全息色散 · 钛金暗流）—— 彩虹微扰、鼠标径向涟漪
-   浅色页：Spiral Vortex（旋转涡流 · 银色珍珠）—— domain-warp 流动、无中心
-   修改风格请参考 references/webgl-backgrounds.md
-*/
-const VS = `attribute vec2 position;void main(){gl_Position=vec4(position,0.0,1.0);}`;
+/* ═══════════════════════════════
+   CONFIG & KEYS
+══════════════════════════════════ */
+// 檢查是否有外部 config.js 載入的 CONFIG_KEYS
+const extConfig = typeof CONFIG_KEYS !== 'undefined' ? CONFIG_KEYS : {};
 
-const FS_DARK = `precision highp float;
-uniform vec2 u_resolution;uniform float u_time;uniform vec2 u_mouse;
-vec3 palette(float t,vec3 a,vec3 b,vec3 c,vec3 d){return a+b*cos(6.28318*(c*t+d));}
-void main(){
-  vec2 uv=gl_FragCoord.xy/u_resolution.xy;
-  vec2 p=uv*2.0-1.0;p.x*=u_resolution.x/u_resolution.y;
-  vec2 m=u_mouse*2.0-1.0;m.x*=u_resolution.x/u_resolution.y;
-  float md=length(p-m);
-  float mr=sin(md*15.0-u_time*4.0)*exp(-md*3.0);p+=mr*0.08;
-  vec2 p0=p;
-  for(float i=1.0;i<4.0;i++){
-    p.x+=0.1/i*sin(i*3.0*p.y+u_time*0.4)+0.05;
-    p.y+=0.1/i*cos(i*2.0*p.x+u_time*0.3)-0.05;
-  }
-  float r=length(p);float ang=atan(p.y,p.x);
-  vec3 a=vec3(0.12,0.12,0.13);
-  vec3 b=vec3(0.03,0.04,0.05);
-  vec3 c=vec3(1.0,1.0,1.0);
-  vec3 d=vec3(0.1,0.2,0.4);
-  vec3 col=palette(r*1.5+p0.x*0.5+u_time*0.1,a,b,c,d);
-  float disp=sin(r*25.0-u_time*1.5+ang*2.0)*0.5+0.5;
-  col+=vec3(disp*0.015,disp*0.01,disp*0.02);
-  float hi=pow(sin(p.x*4.0+p.y*3.0+u_time)*0.5+0.5,8.0);
-  col+=hi*0.08;
-  vec3 base=vec3(0.05,0.05,0.06);
-  col=mix(base,col,0.85);
-  gl_FragColor=vec4(col,1.0);
-}`;
+let CFG = {
+  fhKey:   extConfig.FINNHUB_KEY    || localStorage.getItem('fh_key') || 'csmmjqpr01qn12jeuvs0csmmjqpr01qn12jeuvsg',
+  orKey:   extConfig.OPENROUTER_KEY  || localStorage.getItem('or_key') || '',
+  orModel: extConfig.DEFAULT_MODEL   || localStorage.getItem('or_model') || 'openrouter/free',
+};
+const YF_BASE  = 'https://query1.finance.yahoo.com/v8/finance/chart';
+const FH = 'https://finnhub.io/api/v1';
+const OR = 'https://openrouter.ai/api/v1/chat/completions';
 
-const FS_LIGHT = `precision highp float;
-uniform vec2 u_resolution;uniform float u_time;uniform vec2 u_mouse;
-float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
-float noise(vec2 p){
-  vec2 i=floor(p),f=fract(p);
-  float a=hash(i),b=hash(i+vec2(1,0));
-  float c=hash(i+vec2(0,1)),d=hash(i+vec2(1,1));
-  vec2 u=f*f*(3.0-2.0*f);
-  return mix(a,b,u.x)+(c-a)*u.y*(1.0-u.x)+(d-b)*u.x*u.y;
+let currentSym = '';
+let priceInst, volInst, rsiInst;
+let aiStreaming = false;
+let currentStockContext = null; // stores latest stock data for AI prompts
+
+/* ═══════════════════════════════
+   CONFIG MODAL
+══════════════════════════════════ */
+function openConfig(){
+  document.getElementById('cfgFH').value = CFG.fhKey;
+  document.getElementById('cfgOR').value = CFG.orKey;
+  const sel = document.getElementById('cfgModel');
+  sel.value = CFG.orModel;
+  if(!sel.value) sel.value = 'openrouter/free';
+  document.getElementById('configModal').classList.add('open');
 }
-float fbm(vec2 p){
-  float v=0.0,a=0.5;
-  mat2 m=mat2(0.80,0.60,-0.60,0.80);
-  for(int i=0;i<5;i++){v+=a*noise(p);p=m*p*2.02;a*=0.5;}
-  return v;
+function closeConfig(){ document.getElementById('configModal').classList.remove('open'); }
+function saveConfig(){
+  const fh = document.getElementById('cfgFH').value.trim();
+  const or = document.getElementById('cfgOR').value.trim();
+  const mdl= document.getElementById('cfgModel').value;
+  
+  // 僅在使用者手動輸入且與外部設定不同時才存入 localStorage
+  if(fh && fh !== extConfig.FINNHUB_KEY){ CFG.fhKey = fh; localStorage.setItem('fh_key', fh); }
+  if(or && or !== extConfig.OPENROUTER_KEY){ CFG.orKey = or; localStorage.setItem('or_key', or); }
+  if(mdl){ CFG.orModel = mdl; localStorage.setItem('or_model', mdl); syncModelUI(); }
+  
+  closeConfig();
+  setStatus('設定已儲存', 'ok');
 }
-void main(){
-  vec2 uv=gl_FragCoord.xy/u_resolution.xy;
-  vec2 p=uv;p.x*=u_resolution.x/u_resolution.y;
-  vec2 m=u_mouse;m.x*=u_resolution.x/u_resolution.y;
-  vec2 md=p-m;float dl=length(md);
-  p+=normalize(md+vec2(0.0001))*exp(-dl*5.0)*0.03;
-  vec2 q=vec2(fbm(p*1.8+u_time*0.07),fbm(p*1.8+vec2(5.2,1.3)+u_time*0.06));
-  vec2 r=vec2(fbm(p*2.0+q*1.3+vec2(1.7,9.2)+u_time*0.05),
-              fbm(p*2.0+q*1.3+vec2(8.3,2.8)+u_time*0.04));
-  float f=fbm(p*2.2+r*1.5);
-  vec3 silverDark=vec3(0.86,0.85,0.84);
-  vec3 paper=vec3(0.955,0.945,0.925);
-  vec3 col=mix(silverDark,paper,f);
-  float ph=r.x*2.2+u_time*0.35;
-  col+=vec3(0.78,0.62,0.92)*sin(ph)*0.055;
-  col+=vec3(0.55,0.72,0.95)*sin(ph*0.8+2.0)*0.05;
-  float hl=smoothstep(0.48,0.92,f);
-  col+=hl*0.06;
-  gl_FragColor=vec4(col,1.0);
-}`;
-
-const mouse={x:0.5,y:0.5};
-addEventListener('mousemove',e=>{mouse.x=e.clientX/innerWidth;mouse.y=e.clientY/innerHeight});
-
-function bootGL(canvasId, fsSrc){
-  const canvas=document.getElementById(canvasId);
-  const gl=canvas.getContext('webgl',{alpha:false,antialias:true});
-  if(!gl) return ()=>false;
-  const mk=(t,s)=>{const sh=gl.createShader(t);gl.shaderSource(sh,s);gl.compileShader(sh);return sh};
-  const prog=gl.createProgram();
-  gl.attachShader(prog,mk(gl.VERTEX_SHADER,VS));
-  gl.attachShader(prog,mk(gl.FRAGMENT_SHADER,fsSrc));
-  gl.linkProgram(prog);gl.useProgram(prog);
-  const buf=gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER,buf);
-  gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,-1,1,1,-1,1,1]),gl.STATIC_DRAW);
-  const pos=gl.getAttribLocation(prog,'position');
-  gl.enableVertexAttribArray(pos);gl.vertexAttribPointer(pos,2,gl.FLOAT,false,0,0);
-  const lRes=gl.getUniformLocation(prog,'u_resolution');
-  const lT=gl.getUniformLocation(prog,'u_time');
-  const lM=gl.getUniformLocation(prog,'u_mouse');
-  const resize=()=>{
-    const d=Math.min(window.devicePixelRatio||1,2);
-    canvas.width=innerWidth*d;canvas.height=innerHeight*d;
-    gl.viewport(0,0,canvas.width,canvas.height);
-  };
-  addEventListener('resize',resize);resize();
-  return (tSec)=>{
-    gl.uniform2f(lRes,canvas.width,canvas.height);
-    gl.uniform1f(lT,tSec);
-    gl.uniform2f(lM,mouse.x,1-mouse.y);
-    gl.drawArrays(gl.TRIANGLES,0,6);
-    return true;
-  };
-}
-const drawDark=bootGL('bg-dark',FS_DARK);
-const drawLight=bootGL('bg-light',FS_LIGHT);
-const t0=Date.now();
-(function loop(){
-  const t=(Date.now()-t0)/1000;
-  drawDark(t);drawLight(t);
-  requestAnimationFrame(loop);
-})();
-
-// =============== 导航（翻页 / 圆点 / 键盘 / 滚轮 / 触屏） ===============
-const deck=document.getElementById('deck');
-const slides=deck.querySelectorAll('.slide');
-const nav=document.getElementById('nav');
-let idx=0,total=slides.length,lock=false;
-
-// 关键：矫正 deck 宽度为 total * 100vw，否则翻页会错位
-deck.style.width=(total*100)+'vw';
-
-slides.forEach((s,i)=>{
-  const b=document.createElement('button');
-  b.className='dot';b.dataset.i=i;b.setAttribute('aria-label','Page '+(i+1));
-  b.onclick=()=>go(i);
-  nav.appendChild(b);
+document.getElementById('configModal').addEventListener('click', e => {
+  if(e.target === e.currentTarget) closeConfig();
 });
 
-function go(n){
-  if(lock)return;
-  idx=Math.max(0,Math.min(total-1,n));
-  deck.style.transform=`translateX(${-idx*100}vw)`;
-  /* load-bearing: .slide.active is read by Open Design's host bridge
-     (src/runtime/srcdoc.ts findActiveByClass) to drive the slide counter.
-     No CSS targets it — do not remove. */
-  slides.forEach((s,i)=>s.classList.toggle('active',i===idx));
-  nav.querySelectorAll('.dot').forEach((d,i)=>d.classList.toggle('active',i===idx));
-  /* 主题切换：优先读 data-theme，其次从 class（light/dark）推断 */
-  const el=slides[idx];
-  const th=el.dataset.theme || (el.classList.contains('light')?'light':(el.classList.contains('dark')?'dark':'dark'));
-  document.body.classList.toggle('light-bg',th==='light');
-  lock=true;setTimeout(()=>lock=false,700);
+/* ═══════════════════════════════
+   WATCHLIST
+══════════════════════════════════ */
+const DEFAULT_WL = ['AAPL','NVDA','MSFT','TSLA','META'];
+let watchlistData = {};
+
+function renderWatchlist(){
+  const wl = document.getElementById('watchlist');
+  const syms = JSON.parse(localStorage.getItem('watchlist') || JSON.stringify(DEFAULT_WL));
+  wl.innerHTML = syms.map(s => {
+    const d = watchlistData[s];
+    const isUp = d && d.chg >= 0;
+    return `<div class="wl-item${s===currentSym?' active':''}" onclick="quickLoad('${s}')">
+      <span class="wl-dot"></span>
+      <span>${s}</span>
+      ${d ? `<span class="wl-chg" style="color:${isUp?'var(--green)':'var(--red)'}">${isUp?'+':''}${d.chgPct.toFixed(1)}%</span>` : ''}
+    </div>`;
+  }).join('');
 }
 
-/* =============== ESC 索引视图 =============== */
-let overviewOn=false;
-const ov=document.createElement('div');
-ov.id='overview';
-ov.style.cssText='position:fixed;inset:0;z-index:100;background:rgba(var(--ink-rgb),.92);backdrop-filter:blur(12px);display:none;overflow-y:auto;padding:4vh 4vw';
-document.body.appendChild(ov);
+function quickLoad(sym){
+  document.getElementById('tickerInput').value = sym;
+  loadStock();
+}
 
-function buildOverview(){
-  ov.innerHTML='';
-  const grid=document.createElement('div');
-  grid.style.cssText='display:grid;grid-template-columns:repeat(4,1fr);gap:2vh 1.6vw;max-width:90vw;margin:0 auto';
-  slides.forEach((s,i)=>{
-    const card=document.createElement('div');
-    card.style.cssText='cursor:pointer;border-radius:6px;overflow:hidden;border:2px solid '+(i===idx?'rgba(var(--paper-rgb),.8)':'rgba(var(--paper-rgb),.15)')+';transition:border-color .2s';
-    card.onmouseenter=()=>card.style.borderColor='rgba(var(--paper-rgb),.6)';
-    card.onmouseleave=()=>card.style.borderColor=i===idx?'rgba(var(--paper-rgb),.8)':'rgba(var(--paper-rgb),.15)';
-    const wrap=document.createElement('div');
-    wrap.style.cssText='width:100%;aspect-ratio:16/9;overflow:hidden;position:relative;pointer-events:none;background:'+(s.classList.contains('light')?'var(--paper)':'var(--ink)');
-    const clone=s.cloneNode(true);
-    clone.style.cssText='width:100vw;height:100vh;transform:scale('+(1/4.5)+');transform-origin:top left;position:absolute;top:0;left:0;pointer-events:none';
-    wrap.appendChild(clone);
-    const label=document.createElement('div');
-    label.style.cssText='padding:6px 10px;font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--paper);opacity:.7';
-    label.textContent=(i+1)+' / '+total;
-    card.appendChild(wrap);
-    card.appendChild(label);
-    card.onclick=()=>{toggleOverview();go(i)};
-    grid.appendChild(card);
+/* ═══════════════════════════════
+   UTILS
+══════════════════════════════════ */
+function fmtN(n, d=2){ return n==null||isNaN(n) ? '—' : parseFloat(n).toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d}); }
+function fmtV(v){ v=parseInt(v); if(v>=1e9)return(v/1e9).toFixed(2)+'B'; if(v>=1e6)return(v/1e6).toFixed(1)+'M'; if(v>=1e3)return(v/1e3).toFixed(0)+'K'; return v; }
+function show(id){ document.getElementById(id).style.display=''; }
+function hide(id){ document.getElementById(id).style.display='none'; }
+function setStatus(text, state){
+  const el = document.getElementById('statusBadge');
+  el.className = `status-badge ${state||''}`;
+  el.innerHTML = `<span class="dot"></span>${text}`;
+}
+function dateStr(offset){
+  const d = new Date(); d.setDate(d.getDate()+offset);
+  return d.toISOString().slice(0,10);
+}
+function destroyChart(c){ if(c)try{c.destroy();}catch(e){} }
+
+/* ─── Technical calc ─── */
+function calcMA(arr, n){
+  return arr.map((_,i) => i < n-1 ? null : parseFloat((arr.slice(i-n+1,i+1).reduce((a,b)=>a+b)/n).toFixed(2)));
+}
+function calcRSI(closes, p=14){
+  return closes.map((_,i) => {
+    if(i < p) return null;
+    let g=0, l=0;
+    for(let j=i-p+1; j<=i; j++){ const d=closes[j]-closes[j-1]; d>0?g+=d:l-=d; }
+    const ag=g/p, al=l/p;
+    if(al===0) return 100;
+    return parseFloat((100 - 100/(1+ag/al)).toFixed(1));
   });
-  ov.appendChild(grid);
 }
 
-function toggleOverview(){
-  overviewOn=!overviewOn;
-  if(overviewOn){buildOverview();ov.style.display='block';}
-  else{ov.style.display='none';}
+/* chart defaults */
+const gc = 'rgba(255,255,255,0.05)';
+const tc = '#4f5565';
+
+/* ═══════════════════════════════
+   MAIN LOAD
+══════════════════════════════════ */
+async function fetchFromProxy(url) {
+  const proxyA = 'https://api.allorigins.win/get?url=';
+  const proxyB = 'https://corsproxy.io/?';
+  try {
+    const resA = await fetch(proxyA + encodeURIComponent(url));
+    const jsonA = await resA.json();
+    return typeof jsonA.contents === 'string' ? JSON.parse(jsonA.contents) : jsonA.contents;
+  } catch (err) {
+    const resB = await fetch(proxyB + encodeURIComponent(url));
+    return await resB.json();
+  }
 }
 
-addEventListener('keydown',e=>{
-  if(e.key==='Escape'){e.preventDefault();toggleOverview();return;}
-  if(overviewOn)return;
-  if(e.key==='ArrowRight'||e.key==='PageDown'||e.key===' '||e.key==='ArrowDown')go(idx+1);
-  if(e.key==='ArrowLeft'||e.key==='PageUp'||e.key==='ArrowUp')go(idx-1);
-  if(e.key==='Home')go(0);
-  if(e.key==='End')go(total-1);
-});
+async function resolveSymbol(input) {
+  let query = input.trim();
+  if (!query) return null;
 
-let wheelTO=null,wheelAcc=0;
-addEventListener('wheel',e=>{
-  wheelAcc+=e.deltaY+e.deltaX;
-  if(Math.abs(wheelAcc)>50){go(idx+(wheelAcc>0?1:-1));wheelAcc=0;}
-  clearTimeout(wheelTO);wheelTO=setTimeout(()=>wheelAcc=0,150);
-},{passive:true});
+  // 1. 如果是純數字 (台股代號習慣)，自動補完 .TW
+  if (/^\d{4,6}$/.test(query)) {
+    return query + '.TW';
+  }
+  
+  // 2. 如果包含中文或不像是標準美股代號，嘗試搜尋
+  if (/[\u4e00-\u9fa5]/.test(query) || (query.length > 5 && !query.includes('.'))) {
+    setStatus(`搜尋「${query}」代號...`, '');
+    const searchUrl = `https://query2.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(query)}&quotesCount=1`;
+    try {
+      const searchRes = await fetchFromProxy(searchUrl);
+      if (searchRes.quotes && searchRes.quotes.length > 0) {
+        const found = searchRes.quotes[0].symbol;
+        console.log(`智慧搜尋結果: ${query} -> ${found}`);
+        return found;
+      }
+    } catch (e) { console.error("搜尋解析失敗", e); }
+  }
 
-let tx=0,ty=0;
-addEventListener('touchstart',e=>{tx=e.touches[0].clientX;ty=e.touches[0].clientY},{passive:true});
-addEventListener('touchend',e=>{
-  const dx=(e.changedTouches[0].clientX-tx);
-  const dy=(e.changedTouches[0].clientY-ty);
-  if(Math.abs(dx)>50&&Math.abs(dx)>Math.abs(dy))go(idx+(dx<0?1:-1));
-},{passive:true});
+  return query.toUpperCase();
+}
 
-go(0);
+async function loadStock(){
+  let input = document.getElementById('tickerInput').value.trim();
+  if(!input) return;
+  
+  setStatus('智慧解析中...', '');
+  const sym = await resolveSymbol(input);
+  if(!sym) return;
+  currentSym = sym;
+
+  hide('initialScreen');
+  hide('mainContent');
+  hide('errorBlock');
+  show('loadingBlock');
+  document.getElementById('loadingTicker').textContent = sym;
+  renderWatchlist();
+
+  try {
+    const yfUrl = `${YF_BASE}/${sym}?interval=1d&range=3mo`;
+    
+    const [chartData, profileData, newsData] = await Promise.all([
+      fetchFromProxy(yfUrl),
+      fetch(`${FH}/stock/profile2?symbol=${sym}&token=${CFG.fhKey}`).then(r=>r.ok?r.json():{}).catch(()=>({})),
+      fetch(`${FH}/company-news?symbol=${sym}&from=${dateStr(-30)}&to=${dateStr(0)}&token=${CFG.fhKey}`).then(r=>r.ok?r.json():[]).catch(()=>([])),
+    ]);
+
+    if(!chartData || !chartData.chart || !chartData.chart.result) {
+      throw new Error(`無法獲取「${sym}」行情。Yahoo Finance 伺服器忙碌或代號錯誤。`);
+    }
+
+    const result = chartData.chart.result[0];
+    const meta = result.meta;
+    
+    // 1. 核心即時報價 (最精準來源: regularMarket 系列)
+    const price     = meta.regularMarketPrice;
+    const prevClose = meta.regularMarketPreviousClose || meta.chartPreviousClose || price;
+    const chg       = price - prevClose;
+    const chgPct    = (chg / prevClose) * 100;
+    
+    // 2. 當日行情細節
+    const open      = meta.regularMarketOpen || price;
+    const high      = meta.regularMarketDayHigh || meta.high || price;
+    const low       = meta.regularMarketDayLow || meta.low || price;
+    const vol       = meta.regularMarketVolume || 0;
+    const currentTradeDay = new Date(meta.regularMarketTime * 1000).toLocaleDateString();
+    const isUp      = chg >= 0;
+
+    // 3. 52 週區間 (直接採用官方統計，而非僅從 3 個月歷史計算)
+    const w52h = meta.fiftyTwoWeekHigh || Math.max(meta.regularMarketDayHigh || 0, price);
+    const w52l = meta.fiftyTwoWeekLow  || Math.min(meta.regularMarketDayLow || price, price);
+    const pos52 = ((price - w52l) / (w52h - w52l) * 100);
+
+    /* cache watchlist data */
+    watchlistData[sym] = { chg, chgPct };
+    renderWatchlist();
+
+    /* Hero */
+    document.getElementById('heroSym').textContent = sym;
+    document.getElementById('heroName').textContent = profileData.name || sym;
+    document.getElementById('heroPrice').textContent = '$' + fmtN(price);
+    const chgEl = document.getElementById('heroChg');
+    chgEl.textContent = `${isUp?'+':''}${fmtN(chg)} (${isUp?'+':''}${fmtN(chgPct,2)}%)`;
+    chgEl.className = 'hero-chg ' + (isUp ? 'up' : 'dn');
+
+    const heroMeta = document.getElementById('heroMeta');
+    const industry = profileData.finnhubIndustry || '';
+    const exchange = profileData.exchange || 'US';
+    heroMeta.innerHTML = [
+      `<span class="tag">${exchange}</span>`,
+      industry ? `<span class="tag blue">${industry}</span>` : '',
+      `<span class="tag">${currentTradeDay}</span>`,
+    ].join('');
+
+    /* Metrics */
+    document.getElementById('mOpen').textContent = `$${fmtN(open)} / $${fmtN(prevClose)}`;
+    document.getElementById('mHL').textContent   = `$${fmtN(high)} / $${fmtN(low)}`;
+    document.getElementById('mVol').textContent  = fmtV(vol);
+
+    /* 52-Week Progress Bar */
+    document.getElementById('m52w').textContent    = `$${fmtN(w52l,0)} – $${fmtN(w52h,0)}`;
+    document.getElementById('m52wSub').textContent = `現價 ${pos52.toFixed(0)}% 分位`;
+    document.getElementById('lo52').textContent    = fmtN(w52l,0);
+    document.getElementById('hi52').textContent    = fmtN(w52h,0);
+    document.getElementById('pct52').textContent   = pos52.toFixed(0) + '% 分位';
+    document.getElementById('fill52').style.width  = Math.min(100, Math.max(0, pos52)).toFixed(1) + '%';
+
+    /* Day Range Progress Bar */
+    const dayPos = high===low ? 50 : ((price-low)/(high-low)*100);
+    document.getElementById('dayLo').textContent        = '$'+fmtN(low);
+    document.getElementById('dayHi').textContent        = '$'+fmtN(high);
+    document.getElementById('dayPctLabel').textContent  = Math.min(100, Math.max(0, dayPos)).toFixed(0)+'%';
+    document.getElementById('fillDay').style.width      = Math.min(100, Math.max(0, dayPos)).toFixed(1)+'%';
+
+    /* Historical data (for Charts/MA) */
+    const rawDates = result.timestamp;
+    const dates = rawDates.map(t => new Date(t * 1000).toISOString().slice(0,10));
+    const quotes = result.indicators.quote[0];
+    const closes = quotes.close.map((v, i) => v || (i > 0 ? quotes.close[i-1] : price));
+    const vols   = quotes.volume.map(v => v || 0);
+
+    /* Technical indicators */
+    const ma20arr = calcMA(closes, 20);
+    const ma50arr = calcMA(closes, 50);
+    const rsiArr  = calcRSI(closes, 14);
+    const lastMA20 = ma20arr[ma20arr.length-1];
+    const lastMA50 = ma50arr[ma50arr.length-1];
+    const lastRSI  = rsiArr[rsiArr.length-1];
+
+    document.getElementById('iMA20').textContent = lastMA20 ? '$'+fmtN(lastMA20) : '—';
+    document.getElementById('iMA50').textContent = lastMA50 ? '$'+fmtN(lastMA50) : '—';
+
+    const vsMA20 = lastMA20 ? ((price-lastMA20)/lastMA20*100) : null;
+    const vsMA50 = lastMA50 ? ((price-lastMA50)/lastMA50*100) : null;
+    const v20el = document.getElementById('iVsMA20');
+    v20el.textContent = vsMA20!=null ? `${vsMA20>=0?'+':''}${vsMA20.toFixed(2)}%` : '—';
+    v20el.style.color = vsMA20!=null ? (vsMA20>=0?'var(--green)':'var(--red)') : '';
+    const v50el = document.getElementById('iVsMA50');
+    v50el.textContent = vsMA50!=null ? `${vsMA50>=0?'+':''}${vsMA50.toFixed(2)}%` : '—';
+    v50el.style.color = vsMA50!=null ? (vsMA50>=0?'var(--green)':'var(--red)') : '';
+
+    document.getElementById('iRSI').textContent = lastRSI ?? '—';
+    const rsiEl = document.getElementById('iRSIState');
+    if(lastRSI>=70)      { rsiEl.textContent='超買警示'; rsiEl.className='sig sig-sell'; }
+    else if(lastRSI>=55) { rsiEl.textContent='強勢區間'; rsiEl.className='sig sig-buy';  }
+    else if(lastRSI>=45) { rsiEl.textContent='中性';     rsiEl.className='sig sig-neut'; }
+    else if(lastRSI>=30) { rsiEl.textContent='弱勢';     rsiEl.className='sig sig-hold'; }
+    else                 { rsiEl.textContent='超賣';     rsiEl.className='sig sig-buy';  }
+
+    const rets = closes.slice(1).map((c,i) => Math.log(c/closes[i]));
+    const r20  = rets.slice(-20);
+    const mean = r20.reduce((a,b)=>a+b) / r20.length;
+    const annVol = (Math.sqrt(r20.reduce((a,b)=>a+(b-mean)**2,0)/r20.length) * Math.sqrt(252) * 100).toFixed(1);
+    document.getElementById('iVol').textContent = annVol + '%';
+
+    const trendEl = document.getElementById('iTrend');
+    let trendText, trendClass;
+    if(price>lastMA20 && price>lastMA50 && lastMA20>lastMA50){ trendText='強勢多頭'; trendClass='sig-buy';  }
+    else if(price>lastMA20 && price>lastMA50)                 { trendText='偏多';   trendClass='sig-buy';  }
+    else if(price<lastMA20 && price<lastMA50)                 { trendText='空頭排列'; trendClass='sig-sell'; }
+    else                                                       { trendText='整理中'; trendClass='sig-neut'; }
+    trendEl.textContent = trendText;
+    trendEl.className = 'sig ' + trendClass;
+    /* Average volume */
+    const avgVol = vols.reduce((a,b)=>a+b) / vols.length;
+    const volRatio = (parseInt(vol)/avgVol*100).toFixed(0);
+    document.getElementById('volAvgLabel').textContent = `vs 60日均量 ${volRatio}%`;
+
+    /* Charts */
+    destroyChart(priceInst); destroyChart(volInst); destroyChart(rsiInst);
+    const labels = dates.map(d => d.slice(5));
+
+    priceInst = new Chart(document.getElementById('priceChart'), {
+      type: 'line',
+      data: { labels, datasets: [
+        { label:'Close', data:closes, borderColor:'#00c896', backgroundColor:'rgba(0,200,150,0.05)', borderWidth:1.5, pointRadius:0, fill:true, tension:0.3 },
+        { label:'MA20',  data:ma20arr, borderColor:'#4d9fff', borderWidth:1, pointRadius:0, fill:false, tension:0.3, spanGaps:true },
+        { label:'MA50',  data:ma50arr, borderColor:'#f5a623', borderWidth:1, borderDash:[4,3], pointRadius:0, fill:false, tension:0.3, spanGaps:true }
+      ]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{
+        x:{ticks:{font:{size:9,family:"'DM Mono',monospace"},color:tc,maxTicksLimit:10},grid:{color:gc}},
+        y:{ticks:{font:{size:9,family:"'DM Mono',monospace"},color:tc,callback:v=>'$'+v.toFixed(0)},grid:{color:gc}}
+      }}
+    });
+
+    volInst = new Chart(document.getElementById('volChart'), {
+      type:'bar',
+      data:{ labels, datasets:[{ data:vols,
+        backgroundColor: closes.map((_,i) => i>0 && closes[i]>=closes[i-1] ? 'rgba(0,200,150,0.5)' : 'rgba(255,77,106,0.45)'),
+        borderWidth:0 }]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{
+        x:{display:false},
+        y:{ticks:{font:{size:9,family:"'DM Mono',monospace"},color:tc,callback:v=>fmtV(v)},grid:{color:gc}}
+      }}
+    });
+
+    rsiInst = new Chart(document.getElementById('rsiChart'), {
+      type:'line',
+      data:{ labels, datasets:[{ data:rsiArr, borderColor:'#a78bfa', borderWidth:1.2, pointRadius:0, fill:false, tension:0.3, spanGaps:true }]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{
+        x:{display:false},
+        y:{min:0,max:100,ticks:{font:{size:9,family:"'DM Mono',monospace"},color:tc,stepSize:20},grid:{color:gc}}
+      }}
+    });
+
+    /* News */
+    renderFinnhubNews(newsData);
+
+    /* Sentiment Score */
+    const newsArr = Array.isArray(newsData) ? newsData : [];
+    const sentScores = newsArr.map(n => typeof n.sentiment === 'number' ? n.sentiment : 0).filter(s => s !== 0);
+    const avgSent = sentScores.length > 0 ? sentScores.reduce((a, b) => a + b) / sentScores.length : 0;
+
+    /* Decision */
+    buildDecision(sym, price, chg, chgPct, lastMA20, lastMA50, lastRSI, annVol, pos52, w52h, w52l, newsArr, avgSent);
+
+    /* AI Panel */
+    currentStockContext = {
+      sym, price, chg, chgPct,
+      ma20: lastMA20, ma50: lastMA50, rsi: lastRSI,
+      annVol, pos52, hi52: w52h, lo52: w52l,
+      trendText, avgSent,
+      newsCount: newsArr.length,
+    };
+    buildPromptBtns(sym);
+    document.getElementById('aiPanel').style.display = '';
+    // reset AI response area for new stock
+    const aiResp = document.getElementById('aiResponse');
+    aiResp.style.display = 'none';
+    aiResp.innerHTML = '';
+    syncModelUI();
+    // sync inline model select
+    const inlineSel = document.getElementById('modelSelect');
+    if(inlineSel){ inlineSel.value = CFG.orModel; if(!inlineSel.value) inlineSel.value = 'openrouter/free'; }
+
+    hide('loadingBlock');
+    show('mainContent');
+    setStatus(`已更新 · ${currentTradeDay}`, 'ok');
+
+  } catch(err) {
+    hide('loadingBlock');
+    const el = document.getElementById('errorBlock');
+    el.textContent = '⚠ ' + err.message;
+    show('errorBlock');
+    setStatus('錯誤', 'err');
+  }
+}
+
+/* ═══════════════════════════════
+   NEWS RENDERING
+══════════════════════════════════ */
+function renderFinnhubNews(news){
+  const container = document.getElementById('newsContainer');
+  if(!Array.isArray(news) || news.length === 0){
+    container.innerHTML = '<div style="padding:16px 0;font-size:12px;color:var(--text3);">暫無近期新聞（Finnhub 可能對此股票覆蓋有限）</div>';
+    document.getElementById('newsCountLabel').textContent = '';
+    renderSentimentSummary([], 0, 0, 0, 0);
+    return;
+  }
+
+  document.getElementById('newsCountLabel').textContent = `${news.length} 則 · 近 30 日`;
+  const items = news.slice(0, 10);
+  let pos=0, neg=0, neu=0;
+  const scores = [];
+
+  container.innerHTML = items.map(item => {
+    const s = typeof item.sentiment === 'number' ? item.sentiment : 0;
+    scores.push(s);
+    let sentClass='neu', sentLabel='中性';
+    if(s > 0.1){ sentClass='pos'; sentLabel=`正面`; pos++; }
+    else if(s < -0.1){ sentClass='neg'; sentLabel=`負面`; neg++; }
+    else{ neu++; }
+    const scoreStr = s !== 0 ? ` ${s>0?'+':''}${s.toFixed(2)}` : '';
+    const dt = item.datetime ? new Date(item.datetime*1000).toLocaleDateString('zh-TW',{month:'numeric',day:'numeric'}) : '';
+    const url = item.url || '#';
+    return `<div class="news-item">
+      <div class="news-meta">
+        <span class="news-src">${item.source||''}</span>
+        <span class="news-sent ${sentClass}">${sentLabel}${scoreStr}</span>
+        <span class="news-time">${dt}</span>
+      </div>
+      <div class="news-title">${item.headline||''}</div>
+      ${item.summary ? `<div class="news-summary">${item.summary.slice(0,140)}${item.summary.length>140?'...':''}</div>` : ''}
+      ${url!=='#' ? `<a class="news-link" href="${url}" target="_blank" rel="noopener">閱讀全文 →</a>` : ''}
+    </div>`;
+  }).join('');
+
+  renderSentimentSummary(scores, pos, neg, neu, news.length);
+}
+
+function renderSentimentSummary(scores, pos, neg, neu, total){
+  const el = document.getElementById('sentimentSummary');
+  if(!total){ el.innerHTML = '<div style="font-size:11px;color:var(--text3);">無資料</div>'; return; }
+
+  const avg = scores.length > 0 ? (scores.reduce((a,b)=>a+b)/scores.length) : 0;
+  const avgStr = `${avg>0?'+':''}${avg.toFixed(3)}`;
+  const avgColor = avg > 0.05 ? 'var(--green)' : avg < -0.05 ? 'var(--red)' : 'var(--text3)';
+  document.getElementById('sentAvgLabel').textContent = `均分 ${avgStr}`;
+  document.getElementById('sentAvgLabel').style.color = avgColor;
+
+  const posW = ((pos/total)*100).toFixed(0);
+  const negW = ((neg/total)*100).toFixed(0);
+  const neuW = ((neu/total)*100).toFixed(0);
+
+  el.innerHTML = `
+    <div style="font-size:11px;color:var(--text3);margin-bottom:10px;font-family:var(--mono);">${total} 則 · 平均情緒分 <span style="color:${avgColor}">${avgStr}</span></div>
+    <div class="sent-bar">
+      <span class="sent-bar-label" style="color:var(--green);">正面</span>
+      <div class="sent-bar-track"><div class="sent-bar-fill" style="width:${posW}%;background:var(--green);"></div></div>
+      <span class="sent-bar-pct" style="color:var(--green);">${posW}%</span>
+    </div>
+    <div class="sent-bar">
+      <span class="sent-bar-label">中性</span>
+      <div class="sent-bar-track"><div class="sent-bar-fill" style="width:${neuW}%;background:var(--text3);"></div></div>
+      <span class="sent-bar-pct">${neuW}%</span>
+    </div>
+    <div class="sent-bar">
+      <span class="sent-bar-label" style="color:var(--red);">負面</span>
+      <div class="sent-bar-track"><div class="sent-bar-fill" style="width:${negW}%;background:var(--red);"></div></div>
+      <span class="sent-bar-pct" style="color:var(--red);">${negW}%</span>
+    </div>
+  `;
+}
+
+/* ═══════════════════════════════
+   DECISION SUMMARY
+══════════════════════════════════ */
+function buildDecision(sym, price, chg, chgPct, ma20, ma50, rsi, vol, pos52, hi52, lo52, newsArr, avgSent){
+  const isUp = chg >= 0;
+  const trend = price>ma20&&price>ma50&&ma20>ma50 ? '強勢多頭排列'
+               : price>ma20 ? '短線偏多'
+               : price<ma20&&price<ma50 ? '空頭排列'
+               : '整理盤整';
+  const rsiDesc = rsi>=70 ? `RSI ${rsi} 進入超買，短線注意回調壓力`
+                : rsi>=55 ? `RSI ${rsi} 動能充足，處於強勢區間`
+                : rsi>=45 ? `RSI ${rsi} 中性，方向待確認`
+                : rsi>=30 ? `RSI ${rsi} 偏弱，賣壓存在`
+                : `RSI ${rsi} 超賣，注意反彈機會`;
+
+  const sentDesc = avgSent > 0.1  ? `Finnhub 新聞情緒偏正面（均分 +${avgSent.toFixed(2)}）`
+                 : avgSent < -0.1 ? `Finnhub 新聞情緒偏負面（均分 ${avgSent.toFixed(2)}）`
+                 : `Finnhub 新聞情緒中性（均分 ${avgSent.toFixed(2)}）`;
+
+  const opStr = price>ma20&&price>ma50&&rsi<70&&avgSent>=0 ? '買入 / 持有'
+              : price<ma20&&price<ma50&&avgSent<0          ? '謹謹 / 等待'
+              : rsi>=70                                    ? '觀望 / 注意回調'
+              : '中性觀察';
+
+  const tgt = (price * (isUp?1.08:1.05)).toFixed(2);
+  const sl  = (ma20 ? ma20*0.97 : price*0.94).toFixed(2);
+
+  document.getElementById('decTitle').textContent = `技術 + 情緒分析 — ${sym}`;
+  document.getElementById('decBody').textContent  = `技術面：${trend}，${rsiDesc}。現價 $${price.toFixed(2)}，今日${isUp?'上漲':'下跌'} ${Math.abs(chgPct).toFixed(2)}%，52週位於 ${pos52.toFixed(0)}% 分位（$${lo52.toFixed(0)}–$${hi52.toFixed(0)}）。${sentDesc}（近30日 ${newsArr.length} 則新聞）。MA20 支撐 $${ma20?ma20.toFixed(2):'—'}，MA50 支撐 $${ma50?ma50.toFixed(2):'—'}，年化波動率 ${vol}%。綜合判斷：${opStr}。`;
+  document.getElementById('decOp').textContent = '建議操作：' + opStr;
+  document.getElementById('decTgts').innerHTML = `
+    <span class="decision-tgt">目標 $${tgt}</span>
+    <span class="decision-tgt">止損 $${sl}</span>
+    <span class="decision-tgt">情緒 ${avgSent>0?'+':''}${avgSent.toFixed(3)}</span>
+  `;
+  document.getElementById('decVerdict').style.display = '';
+  document.getElementById('decTags').innerHTML = [
+    '趨勢：'+trend, 'RSI：'+rsi, '波動：'+vol+'%',
+    '情緒：'+(avgSent>0?'+':'')+avgSent.toFixed(2),
+    '52W：'+pos52.toFixed(0)+'%',
+  ].map(t=>`<span class="decision-tag">${t}</span>`).join('');
+}
+
+/* ═══════════════════════════════
+   AI PANEL — OpenRouter Streaming
+══════════════════════════════════ */
+function syncModelUI(){
+  const sel = document.getElementById('modelSelect');
+  if(sel) sel.value = CFG.orModel;
+  const badge = document.getElementById('aiModelBadge');
+  if(badge){
+    const label = CFG.orModel.split('/').pop().replace(':free','') || CFG.orModel;
+    badge.textContent = label;
+    badge.style.background = CFG.orModel.includes(':free') || CFG.orModel === 'openrouter/free'
+      ? 'rgba(0,200,150,0.5)' : 'rgba(167,139,250,0.6)';
+  }
+}
+
+function onModelChange(){
+  const sel = document.getElementById('modelSelect');
+  CFG.orModel = sel.value;
+  localStorage.setItem('or_model', CFG.orModel);
+  syncModelUI();
+}
+
+function toggleAiPanel(){
+  const body = document.getElementById('aiPanelBody');
+  const chevron = document.getElementById('aiPanelChevron');
+  const open = body.style.display !== 'none';
+  body.style.display = open ? 'none' : '';
+  chevron.textContent = open ? '▶' : '▼';
+}
+
+function buildPromptBtns(sym){
+  const prompts = [
+    { label:'📊 完整深度分析', key:'full' },
+    { label:'📈 交易計劃',      key:'trade' },
+    { label:'📅 財報預期',      key:'earnings' },
+    { label:'🔍 同業比較',      key:'peers' },
+    { label:'⚠️ 風險因素',      key:'risk' },
+  ];
+  document.getElementById('promptBtns').innerHTML = prompts.map(p =>
+    `<button class="prompt-btn" id="pbtn-${p.key}" onclick="runAI('${p.key}')">${p.label}</button>`
+  ).join('');
+}
+
+function getPromptText(key){
+  const ctx = currentStockContext;
+  if(!ctx) return '';
+  const { sym, price, chgPct, ma20, ma50, rsi, annVol, pos52, hi52, lo52, trendText, avgSent, newsCount } = ctx;
+  const base = `股票：${sym} | 現價：$${price.toFixed(2)} | 今日漲跌：${chgPct>=0?'+':''}${chgPct.toFixed(2)}% | MA20：$${ma20?.toFixed(2)??'—'} | MA50：$${ma50?.toFixed(2)??'—'} | RSI：${rsi} | 趨勢：${trendText} | 年化波動率：${annVol}% | 52週分位：${pos52.toFixed(0)}%（$${lo52.toFixed(0)}–$${hi52.toFixed(0)}）| Finnhub新聞情緒均分：${avgSent>=0?'+':''}${avgSent.toFixed(3)}（近30日${newsCount}則）`;
+
+  const map = {
+    full:     `你是資深美股分析師。根據以下即時資料，請用繁體中文提供完整深度投資分析，包含：1)技術面解讀 2)趨勢判斷與關鍵支撐壓力位 3)新聞情緒解讀 4)風險因素 5)具體操作建議（進場點、目標價、止損位）。\n\n${base}`,
+    trade:    `你是專業交易員。根據以下資料，用繁體中文設計 ${sym} 的完整交易計劃：分批進場時機與點位、加倉條件、止損設定（技術止損 + 百分比止損）、止盈目標（短線/中線）、倉位建議。\n\n${base}`,
+    earnings: `你是美股研究員。用繁體中文告訴我 ${sym} 的財報資訊：下一個財報日預計何時？市場共識 EPS 預期和營收預期是多少？過去幾季的超預期或未達預期狀況？對股價可能的影響分析。\n\n${base}`,
+    peers:    `你是美股產業分析師。用繁體中文比較 ${sym} 與主要競爭對手的：估值倍數（P/E, P/S, EV/EBITDA）、營收成長率、毛利率、護城河分析、相對高低估判斷。\n\n${base}`,
+    risk:     `你是風險管理專家。用繁體中文分析 ${sym} 目前面臨的主要風險因素，包含：產業風險、公司特定風險、總體經濟風險、技術面風險訊號、以及對應的規避或應對策略。\n\n${base}`,
+  };
+  return map[key] || map['full'];
+}
+
+async function runAI(promptKey){
+  if(aiStreaming) return;
+  if(!CFG.orKey){
+    const resp = document.getElementById('aiResponse');
+    resp.style.display = '';
+    resp.className = 'ai-response done';
+    resp.innerHTML = `<div class="ai-error">⚠ 請先在右上角「⚙ API Key」設定 OpenRouter API Key。<br>免費取得：<a href="https://openrouter.ai/keys" target="_blank" style="color:var(--blue);">openrouter.ai/keys</a></div>`;
+    return;
+  }
+
+  const prompt = getPromptText(promptKey);
+  if(!prompt) return;
+
+  aiStreaming = true;
+  document.querySelectorAll('.prompt-btn').forEach(b => b.disabled = true);
+
+  const resp = document.getElementById('aiResponse');
+  resp.style.display = '';
+  resp.className = 'ai-response streaming';
+  resp.innerHTML = '<span class="ai-cursor"></span>';
+
+  let fullText = '';
+
+  try {
+    const res = await fetch(OR, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${CFG.orKey}`,
+        'HTTP-Referer': window.location.href,
+        'X-Title': 'StockAI',
+      },
+      body: JSON.stringify({
+        model: CFG.orModel,
+        stream: true,
+        max_tokens: 1200,
+        messages: [{ role: 'user', content: prompt }],
+      }),
+    });
+
+    if(!res.ok){
+      const err = await res.json().catch(()=>({error:{message:res.statusText}}));
+      throw new Error(err?.error?.message || `HTTP ${res.status}`);
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+
+    while(true){
+      const { done, value } = await reader.read();
+      if(done) break;
+      const chunk = decoder.decode(value, { stream: true });
+      const lines = chunk.split('\n').filter(l => l.startsWith('data: '));
+      for(const line of lines){
+        const data = line.slice(6).trim();
+        if(data === '[DONE]') break;
+        try{
+          const json = JSON.parse(data);
+          const delta = json.choices?.[0]?.delta?.content || '';
+          if(delta){
+            fullText += delta;
+            resp.innerHTML = escapeHtml(fullText) + '<span class="ai-cursor"></span>';
+            resp.scrollIntoView({ behavior:'smooth', block:'nearest' });
+          }
+          // capture actual model used (for openrouter/free)
+          const usedModel = json.model;
+          if(usedModel && CFG.orModel === 'openrouter/free'){
+            const badge = document.getElementById('aiModelBadge');
+            if(badge) badge.textContent = usedModel.split('/').pop();
+          }
+        } catch(e){}
+      }
+    }
+
+    resp.innerHTML = escapeHtml(fullText);
+    resp.className = 'ai-response done';
+
+  } catch(err){
+    resp.className = 'ai-response done';
+    resp.innerHTML = `<div class="ai-error">⚠ OpenRouter 錯誤：${err.message}<br><small>確認 API Key 正確，且帳戶有足夠額度。免費模型有時暫時不可用，可試試換其他模型。</small></div>`;
+  } finally {
+    aiStreaming = false;
+    document.querySelectorAll('.prompt-btn').forEach(b => b.disabled = false);
+    syncModelUI(); // restore badge after stream
+  }
+}
+
+function escapeHtml(str){
+  return str
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/\n/g,'<br>');
+}
+
+/* ─── Init ─── */
+renderWatchlist();
+syncModelUI();
 </script>
-<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
-<script>lucide.createIcons();</script>
 </body>
 </html>
