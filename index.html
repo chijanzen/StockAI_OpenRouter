@@ -30,6 +30,25 @@
 .ai-cursor { display: inline-block; width: 7px; height: 14px; background: var(--green); vertical-align: middle; animation: blink .7s step-end infinite; margin-left: 2px; }
 @keyframes blink { 0%,100%{opacity:1;} 50%{opacity:0;} }
 .ai-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+
+/* ─── Financial Thesis Grid ─── */
+.thesis-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px;
+}
+.thesis-card {
+  padding: 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg3);
+}
+.thesis-card.bull { border-left: 3px solid var(--green); }
+.thesis-card.bear { border-left: 3px solid var(--red); }
+.thesis-title { font-size: 11px; font-weight: 600; text-transform: uppercase; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+.bull .thesis-title { color: var(--green); }
+.bear .thesis-title { color: var(--red); }
+.thesis-item { font-size: 12px; line-height: 1.5; color: var(--text); margin-bottom: 6px; }
+
+/* ─── Catalyst Tag ─── */
+.catalyst-wrap { margin-top: 12px; padding: 10px; background: var(--blue-dim); border: 1px dashed var(--blue); border-radius: 6px; }
+.catalyst-title { font-size: 11px; color: var(--blue); font-weight: 600; margin-bottom: 4px; }
+.catalyst-text { font-size: 12px; color: var(--text); }
 .model-select {
   height: 36px; padding: 0 12px;
   background: var(--bg3); border: 1px solid var(--border2);
@@ -1192,26 +1211,46 @@ function buildDecision(sym, price, chg, chgPct, ma20, ma50, rsi, vol, pos52, hi5
                : price>ma20 ? '短線偏多'
                : price<ma20&&price<ma50 ? '空頭排列'
                : '整理盤整';
-  const rsiDesc = rsi>=70 ? `RSI ${rsi} 進入超買，短線注意回調壓力`
-                : rsi>=55 ? `RSI ${rsi} 動能充足，處於強勢區間`
-                : rsi>=45 ? `RSI ${rsi} 中性，方向待確認`
-                : rsi>=30 ? `RSI ${rsi} 偏弱，賣壓存在`
-                : `RSI ${rsi} 超賣，注意反彈機會`;
-
-  const sentDesc = avgSent > 0.1  ? `Finnhub 新聞情緒偏正面（均分 +${avgSent.toFixed(2)}）`
-                 : avgSent < -0.1 ? `Finnhub 新聞情緒偏負面（均分 ${avgSent.toFixed(2)}）`
-                 : `Finnhub 新聞情緒中性（均分 ${avgSent.toFixed(2)}）`;
 
   const opStr = price>ma20&&price>ma50&&rsi<70&&avgSent>=0 ? '買入 / 持有'
-              : price<ma20&&price<ma50&&avgSent<0          ? '謹謹 / 等待'
+              : price<ma20&&price<ma50&&avgSent<0          ? '謹慎 / 等待'
               : rsi>=70                                    ? '觀望 / 注意回調'
               : '中性觀察';
 
   const tgt = (price * (isUp?1.08:1.05)).toFixed(2);
   const sl  = (ma20 ? ma20*0.97 : price*0.94).toFixed(2);
 
-  document.getElementById('decTitle').textContent = `技術 + 情緒分析 — ${sym}`;
-  document.getElementById('decBody').textContent  = `技術面：${trend}，${rsiDesc}。現價 $${price.toFixed(2)}，今日${isUp?'上漲':'下跌'} ${Math.abs(chgPct).toFixed(2)}%，52週位於 ${pos52.toFixed(0)}% 分位（$${lo52.toFixed(0)}–$${hi52.toFixed(0)}）。${sentDesc}（近30日 ${newsArr.length} 則新聞）。MA20 支撐 $${ma20?ma20.toFixed(2):'—'}，MA50 支撐 $${ma50?ma50.toFixed(2):'—'}，年化波動率 ${vol}%。綜合判斷：${opStr}。`;
+  document.getElementById('decTitle').textContent = `Investment Thesis — ${sym}`;
+  
+  // 動態生成多空對決與催化劑
+  const bullPoints = [
+    `技術面處於 ${trend}`,
+    `RSI ${rsi} ${rsi<70?'動能尚存':'超買回檔中'}`,
+    avgSent > 0 ? '新聞情緒正面，支撐看漲' : '市場氛圍穩定'
+  ];
+  const bearPoints = [
+    `52週位於 ${pos52.toFixed(0)}% 高位`,
+    `年化波動度 ${vol}% 偏高`,
+    avgSent < -0.1 ? '新聞負面雜訊較多' : '外部總體環境不確定'
+  ];
+
+  document.getElementById('decBody').innerHTML = `
+    <div class="thesis-grid">
+      <div class="thesis-card bull">
+        <div class="thesis-title">📈 Bull Case (看多)</div>
+        ${bullPoints.map(p=>`<div class="thesis-item">· ${p}</div>`).join('')}
+      </div>
+      <div class="thesis-card bear">
+        <div class="thesis-title">📉 Bear Case (看空)</div>
+        ${bearPoints.map(p=>`<div class="thesis-item">· ${p}</div>`).join('')}
+      </div>
+    </div>
+    <div class="catalyst-wrap">
+      <div class="catalyst-title">⚡ 潛在催化劑 (Catalysts)</div>
+      <div class="catalyst-text">${newsArr.length > 0 ? `預計未來 30 天內，市場將對近期 ${newsArr.length} 則新聞中的關鍵事件進行定價。建議關注財報與法說會動向。` : '暫無即時催化劑，維持現狀觀察。'}</div>
+    </div>
+  `;
+
   document.getElementById('decOp').textContent = '建議操作：' + opStr;
   document.getElementById('decTgts').innerHTML = `
     <span class="decision-tgt">目標 $${tgt}</span>
